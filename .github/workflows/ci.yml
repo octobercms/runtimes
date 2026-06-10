@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build base image
+        run: docker build -t runtime-base:ci -f images/base/Dockerfile .
+
+      - name: Smoke test base PHP version
+        run: docker run --rm runtime-base:ci php -v | grep -F 'PHP 8.5'
+
+      - name: Smoke test base Composer
+        run: docker run --rm runtime-base:ci composer --version
+
+      - name: Smoke test base extensions
+        run: |
+          docker run --rm runtime-base:ci php -r '
+          $required = ["curl", "gd", "mbstring", "pdo_mysql", "simplexml", "xml", "zip"];
+          foreach ($required as $extension) {
+              if (!extension_loaded($extension)) {
+                  fwrite(STDERR, "Missing extension: {$extension}\n");
+                  exit(1);
+              }
+          }
+          echo "All required extensions loaded\n";
+          '
+
+      - name: Smoke test base PHP-FPM
+        run: docker run --rm runtime-base:ci php-fpm -t
+
+      - name: Build dev image
+        run: docker build -t runtime-dev:ci --build-arg BASE_IMAGE=runtime-base:ci -f images/dev/Dockerfile .
+
+      - name: Smoke test dev extensions
+        run: |
+          docker run --rm runtime-dev:ci php -r '
+          $required = ["pdo_pgsql", "pdo_sqlite"];
+          foreach ($required as $extension) {
+              if (!extension_loaded($extension)) {
+                  fwrite(STDERR, "Missing extension: {$extension}\n");
+                  exit(1);
+              }
+          }
+          echo "All dev extensions loaded\n";
+          '
+
+      - name: Smoke test dev PHP-FPM
+        run: docker run --rm runtime-dev:ci php-fpm -t
+
+      - name: Build prod image
+        run: docker build -t runtime-prod:ci --build-arg BASE_IMAGE=runtime-base:ci -f images/prod/Dockerfile .
+
+      - name: Smoke test prod PHP-FPM
+        run: docker run --rm runtime-prod:ci php-fpm -t
+
+      - name: Smoke test prod nginx
+        run: docker run --rm runtime-prod:ci nginx -v
+
+      - name: Smoke test prod supervisor
+        run: docker run --rm runtime-prod:ci supervisord --version
