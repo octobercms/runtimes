@@ -1,0 +1,72 @@
+name: Publish
+
+on:
+  release:
+    types: [published]
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/octobercms
+  MOVING_TAG: php85
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set date tag
+        id: vars
+        run: echo "date=$(date -u +'%Y.%m.%d')" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push base image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: images/base/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/runtime-base:${{ env.MOVING_TAG }}
+            ${{ env.IMAGE_PREFIX }}/runtime-base:${{ env.MOVING_TAG }}-${{ steps.vars.outputs.date }}
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Build and push dev image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: images/dev/Dockerfile
+          push: true
+          build-args: |
+            BASE_IMAGE=${{ env.IMAGE_PREFIX }}/runtime-base:${{ env.MOVING_TAG }}
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/runtime-dev:${{ env.MOVING_TAG }}
+            ${{ env.IMAGE_PREFIX }}/runtime-dev:${{ env.MOVING_TAG }}-${{ steps.vars.outputs.date }}
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Build and push prod image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: images/prod/Dockerfile
+          push: true
+          build-args: |
+            BASE_IMAGE=${{ env.IMAGE_PREFIX }}/runtime-base:${{ env.MOVING_TAG }}
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/runtime-prod:${{ env.MOVING_TAG }}
+            ${{ env.IMAGE_PREFIX }}/runtime-prod:${{ env.MOVING_TAG }}-${{ steps.vars.outputs.date }}
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
