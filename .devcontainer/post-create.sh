@@ -33,7 +33,6 @@ mkdir -p \
     storage/system
 
 touch database/database.sqlite
-chmod -R ug+rwx database storage bootstrap/cache
 
 composer install --no-interaction
 
@@ -46,3 +45,7 @@ fi
 php -d memory_limit=512M artisan october:migrate --force
 php -d memory_limit=512M artisan tailor:migrate
 php -d memory_limit=512M artisan theme:seed demo
+
+if id www-data >/dev/null 2>&1; then
+    chown -R www-data:www-data database storage bootstrap/cache
+fi
