@@ -21,7 +21,7 @@ jobs:
 
       - name: Make ${{ matrix.package }} public
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GHCR_ADMIN_TOKEN }}
           ORG: octobercms
           PACKAGE: ${{ matrix.package }}
         run: bash .github/scripts/make-package-public.sh
