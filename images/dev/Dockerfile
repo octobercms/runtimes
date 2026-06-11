@@ -14,5 +14,3 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -f /etc/nginx/sites-enabled/default
 
 COPY config/nginx/default.conf /etc/nginx/conf.d/default.conf
-
-# TODO: add Codespaces / devcontainer tooling

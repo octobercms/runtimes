@@ -1,0 +1,19 @@
+{
+  "name": "October CMS Runtime Dev",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "..",
+    "args": {
+      "DEV_IMAGE": "ghcr.io/octobercms/runtime-dev:php85"
+    }
+  },
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "forwardPorts": [80],
+  "portsAttributes": {
+    "80": {
+      "label": "October CMS",
+      "onAutoForward": "notify"
+    }
+  },
+  "postStartCommand": "bash /usr/local/bin/devcontainer-post-start.sh"
+}

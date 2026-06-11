@@ -59,6 +59,15 @@ jobs:
           docker run --rm runtime-dev:ci nginx -v
           docker run --rm runtime-dev:ci nginx -t
 
+      - name: Build devcontainer image
+        run: |
+          docker build -t runtime-devcontainer:ci \
+            --build-arg DEV_IMAGE=runtime-dev:ci \
+            -f .devcontainer/Dockerfile .
+
+      - name: Smoke test devcontainer
+        run: bash scripts/devcontainer-smoke-test.sh runtime-devcontainer:ci
+
       - name: Build prod image
         run: docker build -t runtime-prod:ci --build-arg BASE_IMAGE=runtime-base:ci -f images/prod/Dockerfile .
 
