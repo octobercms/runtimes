@@ -1,0 +1,27 @@
+name: Make packages public
+
+on:
+  workflow_dispatch:
+
+permissions:
+  packages: write
+
+jobs:
+  make-public:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package:
+          - runtime-base
+          - runtime-dev
+          - runtime-prod
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Make ${{ matrix.package }} public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ORG: octobercms
+          PACKAGE: ${{ matrix.package }}
+        run: bash .github/scripts/make-package-public.sh
