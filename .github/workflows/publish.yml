@@ -68,10 +68,3 @@ jobs:
             BASE_IMAGE=${{ env.IMAGE_PREFIX }}/runtime-base:${{ env.MOVING_TAG }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-
-      - name: Make package public
-        env:
-          GH_TOKEN: ${{ secrets.GHCR_ADMIN_TOKEN }}
-          ORG: octobercms
-          PACKAGE: ${{ matrix.image }}
-        run: bash .github/scripts/make-package-public.sh

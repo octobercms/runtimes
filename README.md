@@ -145,7 +145,7 @@ The devcontainer smoke test uses the same install flow and verifies `/_health` a
 - A git tag matching `v*` is pushed
 - The workflow is triggered manually from the Actions tab
 
-After each publish, the workflow attempts to set each GHCR package to public. That step requires an organization secret named `GHCR_ADMIN_TOKEN`: a classic personal access token from an org owner with `read:packages`, `write:packages`, and `admin:org`. The default `GITHUB_TOKEN` can push images but cannot change organization package visibility (the API returns 404). If the secret is not configured, publish still succeeds and packages remain private until you make them public in the package settings UI or run the **Make packages public** workflow after adding the secret.
+Images are published as public packages on GHCR and can be pulled without authentication.
 
 ## Health checks
 
