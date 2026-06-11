@@ -8,11 +8,16 @@
     }
   },
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "customizations": {
+    "codespaces": {
+      "openFiles": []
+    }
+  },
   "forwardPorts": [80],
   "portsAttributes": {
     "80": {
       "label": "October CMS",
-      "onAutoForward": "openBrowser",
+      "onAutoForward": "openPreview",
       "protocol": "https"
     }
   },
