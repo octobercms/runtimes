@@ -61,7 +61,23 @@ jobs:
         run: docker run --rm runtime-prod:ci php-fpm -t
 
       - name: Smoke test prod nginx
-        run: docker run --rm runtime-prod:ci nginx -v
+        run: |
+          docker run --rm runtime-prod:ci nginx -v
+          docker run --rm runtime-prod:ci nginx -t
 
       - name: Smoke test prod supervisor
         run: docker run --rm runtime-prod:ci supervisord --version
+
+      - name: Smoke test prod health endpoint
+        run: |
+          cid=$(docker run -d runtime-prod:ci)
+          trap 'docker rm -f "$cid"' EXIT
+          for i in $(seq 1 30); do
+            if docker exec "$cid" /usr/local/bin/healthcheck.sh; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Health check failed"
+          docker logs "$cid"
+          exit 1
