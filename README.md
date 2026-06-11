@@ -140,6 +140,7 @@ The devcontainer smoke test uses the same install flow and verifies `/_health` a
 
 **Publish** pushes images to GHCR when:
 
+- Changes are pushed to `main`
 - A GitHub Release is published
 - A git tag matching `v*` is pushed
 - The workflow is triggered manually from the Actions tab
