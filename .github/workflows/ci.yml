@@ -54,6 +54,11 @@ jobs:
       - name: Smoke test dev PHP-FPM
         run: docker run --rm runtime-dev:ci php-fpm -t
 
+      - name: Smoke test dev nginx
+        run: |
+          docker run --rm runtime-dev:ci nginx -v
+          docker run --rm runtime-dev:ci nginx -t
+
       - name: Build prod image
         run: docker build -t runtime-prod:ci --build-arg BASE_IMAGE=runtime-base:ci -f images/prod/Dockerfile .
 
