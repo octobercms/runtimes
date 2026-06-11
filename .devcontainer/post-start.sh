@@ -23,6 +23,8 @@ for dir in "${storage_dirs[@]}"; do
     fi
 done
 
+bash /usr/local/bin/devcontainer-configure-app-url.sh
+
 php-fpm -D
 
 exec nginx -g "daemon off;"

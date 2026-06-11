@@ -127,7 +127,7 @@ scripts/
 ├── Dockerfile                    # Dev runtime wrapper for Codespaces
 ├── post-create.sh                # Installs October CMS into /var/www/html
 ├── post-start.sh                 # Starts PHP-FPM and Nginx
-└── configure-app-url.sh          # Sets APP_URL for local development
+└── configure-app-url.sh          # Sets APP_URL and LINK_POLICY for dev/Codespaces
 ```
 
 Opening this repository in a dev container clones [octobercms/october](https://github.com/octobercms/october) into `/var/www/html` during `postCreateCommand`, then starts the web stack on port 80 during `postStartCommand`.

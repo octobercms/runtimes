@@ -12,7 +12,8 @@
   "portsAttributes": {
     "80": {
       "label": "October CMS",
-      "onAutoForward": "openBrowser"
+      "onAutoForward": "openBrowser",
+      "protocol": "https"
     }
   },
   "postCreateCommand": "bash /usr/local/bin/devcontainer-post-create.sh",
