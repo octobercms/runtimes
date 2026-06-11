@@ -120,7 +120,7 @@ images/
 scripts/
 ├── entrypoint.sh                 # Prepares storage directories on startup
 ├── healthcheck.sh                # Checks /_health from inside the container
-└── devcontainer-smoke-test.sh    # Verifies the dev web stack and /_health
+└── devcontainer-smoke-test.sh    # Installs October CMS and verifies /_health and / return HTTP 200
 
 .devcontainer/
 ├── devcontainer.json             # Dev container configuration
@@ -130,11 +130,13 @@ scripts/
 └── configure-app-url.sh          # Sets APP_URL for local development
 ```
 
-Opening this repository in a dev container installs October CMS into `/var/www/html` during `postCreateCommand`, then starts the web stack on port 80 during `postStartCommand`. Composer must be authenticated with the October CMS gateway before the dev container is created.
+Opening this repository in a dev container clones [octobercms/october](https://github.com/octobercms/october) into `/var/www/html` during `postCreateCommand`, then starts the web stack on port 80 during `postStartCommand`.
+
+The devcontainer smoke test uses the same install flow and verifies `/_health` and `/` both return HTTP 200.
 
 ## CI and publishing
 
-**CI** runs on every push and pull request. It builds all three images and runs smoke tests for PHP, extensions, Nginx configuration, the prod `/_health` endpoint, and a devcontainer flow that starts the dev web stack and verifies `/_health`.
+**CI** runs on every push and pull request. It builds all three images and runs smoke tests for PHP, extensions, Nginx configuration, the prod `/_health` endpoint, and a devcontainer flow that installs October CMS and verifies the homepage responds.
 
 **Publish** pushes images to GHCR when:
 

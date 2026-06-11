@@ -2,12 +2,14 @@
 set -euo pipefail
 
 app_root=/var/www/html
+october_repo=https://github.com/octobercms/october.git
+october_branch=4.x
+
+git clone --depth 1 --branch "${october_branch}" "${october_repo}" "${app_root}"
 
 cd "${app_root}"
 
 export COMPOSER_MEMORY_LIMIT=-1
-
-composer create-project october/october . --no-interaction --no-install
 
 if [[ ! -f .env ]]; then
     cp .env.example .env
