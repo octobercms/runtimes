@@ -5,6 +5,8 @@ app_root=/var/www/html
 october_repo=https://github.com/octobercms/october.git
 october_branch=4.x
 
+find "${app_root}" -mindepth 1 -delete
+
 git clone --depth 1 --branch "${october_branch}" "${october_repo}" "${app_root}"
 
 cd "${app_root}"
