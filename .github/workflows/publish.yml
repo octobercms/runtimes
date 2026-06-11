@@ -16,10 +16,27 @@ env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/octobercms
   MOVING_TAG: php85
+  GIT_REF: ${{ github.event.release.tag_name || github.ref_name }}
 
 jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   publish:
+    needs: ci
     runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+      fail-fast: true
+      matrix:
+        include:
+          - image: runtime-base
+            dockerfile: images/base/Dockerfile
+          - image: runtime-dev
+            dockerfile: images/dev/Dockerfile
+          - image: runtime-prod
+            dockerfile: images/prod/Dockerfile
+
     steps:
       - uses: actions/checkout@v6
 
@@ -33,86 +50,19 @@ jobs:
       - name: Prepare image tags
         id: meta
         env:
+          IMAGE: ${{ matrix.image }}
           IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
           MOVING_TAG: ${{ env.MOVING_TAG }}
-        run: |
-          date=$(date -u +'%Y.%m.%d')
-          sha="${GITHUB_SHA:0:7}"
-          version=""
+          GIT_REF: ${{ env.GIT_REF }}
+        run: bash .github/scripts/prepare-image-tags.sh
 
-          case "${{ github.event_name }}" in
-            release)
-              ref="${{ github.event.release.tag_name }}"
-              ;;
-            push)
-              ref="${{ github.ref_name }}"
-              ;;
-            *)
-              ref=""
-              ;;
-          esac
-
-          if [[ "${ref}" == v* ]]; then
-            version="${ref#v}"
-          fi
-
-          write_tags() {
-            local image=$1
-            local prefix="${IMAGE_PREFIX}/${image}"
-
-            echo "${prefix}:${MOVING_TAG}"
-            echo "${prefix}:latest"
-            echo "${prefix}:${MOVING_TAG}-${date}"
-            echo "${prefix}:${MOVING_TAG}-${date}-${sha}"
-
-            if [[ -n "${version}" ]]; then
-              echo "${prefix}:${MOVING_TAG}-${version}"
-              echo "${prefix}:${version}"
-            fi
-          }
-
-          write_image_tags() {
-            local output_name=$1
-            local image=$2
-
-            {
-              echo "${output_name}<<EOF"
-              write_tags "${image}"
-              echo "EOF"
-            } >> "$GITHUB_OUTPUT"
-          }
-
-          write_image_tags base_tags runtime-base
-          write_image_tags dev_tags runtime-dev
-          write_image_tags prod_tags runtime-prod
-
-      - name: Build and push base image
+      - name: Build and push image
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: images/base/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.base_tags }}
-          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-
-      - name: Build and push dev image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: images/dev/Dockerfile
+          file: ${{ matrix.dockerfile }}
           push: true
           build-args: |
             BASE_IMAGE=${{ env.IMAGE_PREFIX }}/runtime-base:${{ env.MOVING_TAG }}
-          tags: ${{ steps.meta.outputs.dev_tags }}
-          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-
-      - name: Build and push prod image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: images/prod/Dockerfile
-          push: true
-          build-args: |
-            BASE_IMAGE=${{ env.IMAGE_PREFIX }}/runtime-base:${{ env.MOVING_TAG }}
-          tags: ${{ steps.meta.outputs.prod_tags }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}

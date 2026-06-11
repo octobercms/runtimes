@@ -3,23 +3,48 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_call:
 
 jobs:
-  images:
+  image:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: base
+            image: runtime-base
+            dockerfile: images/base/Dockerfile
+          - id: dev
+            image: runtime-dev
+            dockerfile: images/dev/Dockerfile
+          - id: prod
+            image: runtime-prod
+            dockerfile: images/prod/Dockerfile
+
     steps:
       - uses: actions/checkout@v6
 
       - name: Build base image
         run: docker build -t runtime-base:ci -f images/base/Dockerfile .
 
-      - name: Smoke test base PHP version
+      - name: Build image
+        if: matrix.id != 'base'
+        run: |
+          docker build -t ${{ matrix.image }}:ci \
+            --build-arg BASE_IMAGE=runtime-base:ci \
+            -f ${{ matrix.dockerfile }} .
+
+      - name: Smoke test PHP version
+        if: matrix.id == 'base'
         run: docker run --rm runtime-base:ci php -v | grep -F 'PHP 8.5'
 
-      - name: Smoke test base Composer
+      - name: Smoke test Composer
+        if: matrix.id == 'base'
         run: docker run --rm runtime-base:ci composer --version
 
       - name: Smoke test base extensions
+        if: matrix.id == 'base'
         run: |
           docker run --rm runtime-base:ci php -r '
           $required = ["curl", "gd", "mbstring", "pdo_mysql", "simplexml", "xml", "zip"];
@@ -32,13 +57,12 @@ jobs:
           echo "All required extensions loaded\n";
           '
 
-      - name: Smoke test base PHP-FPM
-        run: docker run --rm runtime-base:ci php-fpm -t
-
-      - name: Build dev image
-        run: docker build -t runtime-dev:ci --build-arg BASE_IMAGE=runtime-base:ci -f images/dev/Dockerfile .
+      - name: Smoke test PHP-FPM
+        if: matrix.id == 'base' || matrix.id == 'dev' || matrix.id == 'prod'
+        run: docker run --rm ${{ matrix.image }}:ci php-fpm -t
 
       - name: Smoke test dev extensions
+        if: matrix.id == 'dev'
         run: |
           docker run --rm runtime-dev:ci php -r '
           $required = ["pdo_pgsql", "pdo_sqlite"];
@@ -51,38 +75,29 @@ jobs:
           echo "All dev extensions loaded\n";
           '
 
-      - name: Smoke test dev PHP-FPM
-        run: docker run --rm runtime-dev:ci php-fpm -t
-
-      - name: Smoke test dev nginx
+      - name: Smoke test nginx
+        if: matrix.id == 'dev' || matrix.id == 'prod'
         run: |
-          docker run --rm runtime-dev:ci nginx -v
-          docker run --rm runtime-dev:ci nginx -t
+          docker run --rm ${{ matrix.image }}:ci nginx -v
+          docker run --rm ${{ matrix.image }}:ci nginx -t
 
       - name: Build devcontainer image
+        if: matrix.id == 'dev'
         run: |
           docker build -t runtime-devcontainer:ci \
             --build-arg DEV_IMAGE=runtime-dev:ci \
             -f .devcontainer/Dockerfile .
 
       - name: Smoke test devcontainer
+        if: matrix.id == 'dev'
         run: bash scripts/devcontainer-smoke-test.sh runtime-devcontainer:ci
 
-      - name: Build prod image
-        run: docker build -t runtime-prod:ci --build-arg BASE_IMAGE=runtime-base:ci -f images/prod/Dockerfile .
-
-      - name: Smoke test prod PHP-FPM
-        run: docker run --rm runtime-prod:ci php-fpm -t
-
-      - name: Smoke test prod nginx
-        run: |
-          docker run --rm runtime-prod:ci nginx -v
-          docker run --rm runtime-prod:ci nginx -t
-
-      - name: Smoke test prod supervisor
+      - name: Smoke test supervisor
+        if: matrix.id == 'prod'
         run: docker run --rm runtime-prod:ci supervisord --version
 
-      - name: Smoke test prod health endpoint
+      - name: Smoke test health endpoint
+        if: matrix.id == 'prod'
         run: |
           cid=$(docker run -d runtime-prod:ci)
           trap 'docker rm -f "$cid"' EXIT
