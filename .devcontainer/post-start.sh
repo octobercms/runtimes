@@ -25,6 +25,28 @@ done
 
 bash /usr/local/bin/devcontainer-configure-app-url.sh
 
-php-fpm -D
+port_open() {
+    (echo >/dev/tcp/127.0.0.1/"$1") 2>/dev/null
+}
 
-exec nginx -g "daemon off;"
+if port_open 9000; then
+    :
+else
+    php-fpm -D
+fi
+
+if port_open 80; then
+    nginx -s reload
+else
+    nginx
+fi
+
+for _ in $(seq 1 30); do
+    if curl -sf http://127.0.0.1/_health >/dev/null; then
+        exit 0
+    fi
+    sleep 1
+done
+
+echo "post-start: /_health did not become ready" >&2
+exit 1

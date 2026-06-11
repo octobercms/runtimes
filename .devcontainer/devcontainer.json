@@ -13,7 +13,6 @@
       "openFiles": []
     }
   },
-  "forwardPorts": [80],
   "portsAttributes": {
     "80": {
       "label": "October CMS",
@@ -22,5 +21,6 @@
     }
   },
   "postCreateCommand": "bash /usr/local/bin/devcontainer-post-create.sh",
-  "postStartCommand": "bash /usr/local/bin/devcontainer-post-start.sh"
+  "postStartCommand": "bash /usr/local/bin/devcontainer-post-start.sh",
+  "postAttachCommand": "bash /usr/local/bin/devcontainer-wait-for-health.sh"
 }
