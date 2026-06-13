@@ -132,7 +132,7 @@ scripts/
 
 Opening this repository in a dev container clones [octobercms/october](https://github.com/octobercms/october) into `/var/www/html` during `postCreateCommand`, then starts the web stack on port 80 during `postStartCommand`.
 
-The devcontainer smoke test uses the same install flow and verifies `/_health` and `/` both return HTTP 200.
+The devcontainer smoke test uses the same install flow and verifies `/` and `/_health` both return HTTP 200.
 
 ## CI and publishing
 
