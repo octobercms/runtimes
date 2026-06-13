@@ -156,3 +156,9 @@ GET /_health → 200 ok
 ```
 
 This is used by the Docker `HEALTHCHECK` instruction and by `scripts/healthcheck.sh`.
+
+## License
+
+[MIT](https://github.com/octobercms/runtimes/blob/main/LICENSE)
+
+Copyright (c) 2026-present, October CMS.
