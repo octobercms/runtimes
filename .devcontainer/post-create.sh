@@ -3,11 +3,22 @@ set -euo pipefail
 
 app_root=/var/www/html
 october_repo=https://github.com/octobercms/october.git
-october_branch=4.x
+october_ref=$(
+    git ls-remote --tags --refs "${october_repo}" 'v4.*' \
+        | awk -F/ '{print $NF}' \
+        | sort -V \
+        | tail -1
+)
 
+if [[ -z "${october_ref}" ]]; then
+    echo "Could not resolve latest October CMS v4 release tag" >&2
+    exit 1
+fi
+
+chown -R "$(id -u)":"$(id -g)" "${app_root}"
 find "${app_root}" -mindepth 1 -delete
 
-git clone --depth 1 --branch "${october_branch}" "${october_repo}" "${app_root}"
+git clone --depth 1 --branch "${october_ref}" "${october_repo}" "${app_root}"
 
 cd "${app_root}"
 
