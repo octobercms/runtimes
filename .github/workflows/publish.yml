@@ -13,12 +13,18 @@ on:
 permissions:
   contents: read
   packages: write
+  id-token: write
 
 env:
   REGISTRY: ghcr.io
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_RUNTIME_PUBLISHER_ROLE_ARN: ${{ secrets.AWS_RUNTIME_PUBLISHER_ROLE_ARN }}
+  ECR_RUNTIME_BASE_REPOSITORY: ${{ vars.ECR_RUNTIME_BASE_REPOSITORY }}
+  ECR_RUNTIME_PROD_REPOSITORY: ${{ vars.ECR_RUNTIME_PROD_REPOSITORY }}
+  GIT_REF: ${{ github.event.release.tag_name || github.ref_name }}
   IMAGE_PREFIX: ghcr.io/octobercms
   MOVING_TAG: php85
-  GIT_REF: ${{ github.event.release.tag_name || github.ref_name }}
 
 jobs:
   ci:
@@ -34,10 +40,15 @@ jobs:
         include:
           - image: runtime-base
             dockerfile: images/base/Dockerfile
+            ecr_repository_env: ECR_RUNTIME_BASE_REPOSITORY
+
           - image: runtime-dev
             dockerfile: images/dev/Dockerfile
+            ecr_repository_env: ''
+
           - image: runtime-prod
             dockerfile: images/prod/Dockerfile
+            ecr_repository_env: ECR_RUNTIME_PROD_REPOSITORY
 
     steps:
       - uses: actions/checkout@v6
@@ -49,14 +60,45 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Prepare image tags
-        id: meta
+      - name: Configure AWS credentials
+        if: ${{ matrix.ecr_repository_env != '' }}
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ env.AWS_RUNTIME_PUBLISHER_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        if: ${{ matrix.ecr_repository_env != '' }}
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Prepare GHCR image tags
+        id: ghcr-meta
         env:
           IMAGE: ${{ matrix.image }}
           IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
           MOVING_TAG: ${{ env.MOVING_TAG }}
           GIT_REF: ${{ env.GIT_REF }}
         run: bash .github/scripts/prepare-image-tags.sh
+
+      - name: Prepare ECR image tags
+        id: ecr-meta
+        if: ${{ matrix.ecr_repository_env != '' }}
+        env:
+          AWS_ACCOUNT_ID: ${{ env.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+          ECR_REPOSITORY_ENV: ${{ matrix.ecr_repository_env }}
+          MOVING_TAG: ${{ env.MOVING_TAG }}
+          GIT_REF: ${{ env.GIT_REF }}
+        run: |
+          ECR_REPOSITORY="${!ECR_REPOSITORY_ENV}"
+          ECR_IMAGE="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}"
+
+          {
+            echo "tags<<EOF"
+            echo "${ECR_IMAGE}:${MOVING_TAG}"
+            echo "${ECR_IMAGE}:${GIT_REF}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build and push image
         uses: docker/build-push-action@v7
@@ -66,5 +108,8 @@ jobs:
           push: true
           build-args: |
             BASE_IMAGE=${{ env.IMAGE_PREFIX }}/runtime-base:${{ env.MOVING_TAG }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          tags: |
+            ${{ steps.ghcr-meta.outputs.tags }}
+            ${{ steps.ecr-meta.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
