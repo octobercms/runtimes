@@ -2,8 +2,11 @@ ARG BASE_IMAGE=ghcr.io/octobercms/runtime-base:php85
 FROM ${BASE_IMAGE}
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev \
     nginx \
     supervisor \
+    && docker-php-ext-install -j"$(nproc)" \
+        pdo_pgsql \
     && rm -rf /var/lib/apt/lists/* \
     && rm -f /etc/nginx/sites-enabled/default
 

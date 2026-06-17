@@ -92,6 +92,20 @@ jobs:
         if: matrix.id == 'dev'
         run: bash scripts/devcontainer-smoke-test.sh runtime-devcontainer:ci
 
+      - name: Smoke test prod extensions
+        if: matrix.id == 'prod'
+        run: |
+          docker run --rm runtime-prod:ci php -r '
+          $required = ["pdo_pgsql"];
+          foreach ($required as $extension) {
+              if (!extension_loaded($extension)) {
+                  fwrite(STDERR, "Missing extension: {$extension}\n");
+                  exit(1);
+              }
+          }
+          echo "All prod extensions loaded\n";
+          '
+
       - name: Smoke test supervisor
         if: matrix.id == 'prod'
         run: docker run --rm runtime-prod:ci supervisord --version
