@@ -1,6 +1,8 @@
-# October CMS Runtimes
+# October Cloud Runtimes
 
-Official Docker runtime images for [October CMS](https://octobercms.com). These images provide a shared foundation for local development, GitHub Codespaces, and production deployments.
+Official Docker runtime images for [October Cloud](https://octobercms.cloud). These images provide a shared foundation for local development, GitHub Codespaces, and production deployments.
+
+[Click here to stay informed &rarr;](https://www.reddit.com/r/octobercms/)
 
 ## Images
 
