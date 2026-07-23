@@ -43,6 +43,14 @@ jobs:
         if: matrix.id == 'base'
         run: docker run --rm runtime-base:ci composer --version
 
+      - name: Smoke test Node tooling
+        if: matrix.id == 'base'
+        run: |
+          docker run --rm runtime-base:ci node --version
+          docker run --rm runtime-base:ci npm --version
+          docker run --rm runtime-base:ci pnpm --version
+          docker run --rm runtime-base:ci yarn --version
+
       - name: Smoke test base extensions
         if: matrix.id == 'base'
         run: |
