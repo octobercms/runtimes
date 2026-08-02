@@ -3,6 +3,7 @@ FROM php:8.5-fpm
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
+    jq \
     unzip \
     libcurl4-openssl-dev \
     libpng-dev \
