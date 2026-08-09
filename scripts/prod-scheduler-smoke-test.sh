@@ -6,8 +6,18 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fixtures_dir="${script_dir}/fixtures"
 
 workdir="$(mktemp -d)"
+# mktemp creates mode 0700; www-data must be able to traverse the bind mount on Linux.
+chmod 755 "${workdir}"
 cid=""
-trap 'docker rm -f "${cid}" >/dev/null 2>&1 || true; rm -rf "${workdir}"' EXIT
+
+cleanup() {
+    docker rm -f "${cid}" >/dev/null 2>&1 || true
+    if [[ -d "${workdir}" ]]; then
+        docker run --rm -v "${workdir}:/app" "${image}" bash -lc 'find /app -mindepth 1 -delete' >/dev/null 2>&1 || true
+        rm -rf "${workdir}" >/dev/null 2>&1 || true
+    fi
+}
+trap cleanup EXIT
 
 supervisor_status() {
     docker exec "${cid}" supervisorctl status

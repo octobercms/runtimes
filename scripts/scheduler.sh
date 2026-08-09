@@ -18,5 +18,9 @@ if [[ ! -f /var/www/html/artisan ]]; then
     exec sleep infinity
 fi
 
-cd /var/www/html
+if ! cd /var/www/html; then
+    echo "October scheduler waiting: cannot access /var/www/html."
+    exec sleep infinity
+fi
+
 exec php artisan schedule:work
