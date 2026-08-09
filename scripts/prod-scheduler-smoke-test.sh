@@ -88,12 +88,16 @@ docker run --rm \
         mkdir -p app/Console/Commands
         cp /fixtures/RuntimeProbe.php app/Console/Commands/RuntimeProbe.php
         php /fixtures/register-runtime-probe.php
-        chown -R www-data:www-data storage bootstrap/cache
+        # schedule:work runs as www-data and must write cache/storage/sqlite paths.
+        www_uid="$(id -u www-data)"
+        www_gid="$(id -g www-data)"
+        chown -R "${www_uid}:${www_gid}" storage bootstrap/cache database
     '
 
 echo "Starting production container with Laravel app..."
 cid="$(docker run -d \
     -e OCTOBER_SCHEDULER_ENABLED=true \
+    -e CACHE_STORE=file \
     -v "${workdir}:/var/www/html" \
     "${image}")"
 
