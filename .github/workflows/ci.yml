@@ -21,6 +21,9 @@ jobs:
           - id: prod
             image: runtime-prod
             dockerfile: images/prod/Dockerfile
+          - id: worker
+            image: runtime-worker
+            dockerfile: images/worker/Dockerfile
 
     steps:
       - uses: actions/checkout@v6
@@ -136,3 +139,33 @@ jobs:
       - name: Smoke test production scheduler
         if: matrix.id == 'prod'
         run: bash scripts/prod-scheduler-smoke-test.sh runtime-prod:ci
+
+      - name: Smoke test worker extensions
+        if: matrix.id == 'worker'
+        run: |
+          docker run --rm runtime-worker:ci php -r '
+          $required = ["pcntl", "pdo_pgsql", "pdo_sqlite", "posix"];
+          foreach ($required as $extension) {
+              if (!extension_loaded($extension)) {
+                  fwrite(STDERR, "Missing extension: {$extension}\n");
+                  exit(1);
+              }
+          }
+          echo "All worker extensions loaded\n";
+          '
+
+      - name: Smoke test worker excludes web stack
+        if: matrix.id == 'worker'
+        run: |
+          if docker run --rm --entrypoint bash runtime-worker:ci -lc 'command -v nginx'; then
+            echo "nginx should not be installed in runtime-worker"
+            exit 1
+          fi
+          if docker run --rm --entrypoint bash runtime-worker:ci -lc 'command -v supervisord'; then
+            echo "supervisord should not be installed in runtime-worker"
+            exit 1
+          fi
+
+      - name: Smoke test worker queue processing
+        if: matrix.id == 'worker'
+        run: bash scripts/worker-queue-smoke-test.sh runtime-worker:ci
