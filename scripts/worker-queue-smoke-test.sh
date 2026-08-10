@@ -83,6 +83,10 @@ docker run --rm \
         cp /fixtures/QueueProbeJob.php app/Jobs/QueueProbeJob.php
         php artisan migrate --force --no-interaction
         php /fixtures/dispatch-queue-probe.php
+        # Worker runs as www-data and must write cache/storage/sqlite paths.
+        www_uid="$(id -u www-data)"
+        www_gid="$(id -g www-data)"
+        chown -R "${www_uid}:${www_gid}" storage bootstrap/cache database
     '
 
 echo "Starting worker container..."
@@ -109,6 +113,14 @@ if ! process_args | grep -F 'artisan queue:work'; then
 fi
 
 assert_no_web_stack
+
+echo "Verifying worker runs as www-data..."
+worker_user="$(docker exec "${cid}" bash -lc 'stat -c %U /proc/1')"
+if [[ "${worker_user}" != "www-data" ]]; then
+    echo "Expected PID 1 to run as www-data, got ${worker_user}"
+    process_args
+    exit 1
+fi
 
 echo "Waiting for queued job marker..."
 wait_for_file "${workdir}/storage/app/queue-job-ran" 90

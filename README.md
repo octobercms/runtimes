@@ -60,8 +60,8 @@ Extends the base image for isolated production queue execution. Platforms such a
 
 - PostgreSQL and SQLite drivers and production PHP settings
 - `pcntl` / `posix` for graceful worker signal handling
-- Default process: `php artisan queue:work`
-- Entrypoint that prepares October storage directories
+- Default process: `php artisan queue:work` as `www-data`
+- Entrypoint that prepares October storage directories, then drops privileges
 - No Nginx, PHP-FPM service, Supervisor, scheduler, or HTTP health endpoint
 
 Queue backend, timeout, retry, sleep, and concurrency arguments are left to the platform. Override the command when needed:

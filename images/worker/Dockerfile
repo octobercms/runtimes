@@ -16,5 +16,7 @@ COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+ENV OCTOBER_RUNTIME_USER=www-data
+
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["php", "artisan", "queue:work"]
