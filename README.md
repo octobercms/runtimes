@@ -24,7 +24,7 @@ The base image is the shared layer for all runtimes. It is not intended to be ru
 - Extensions required by October CMS
 - Working directory: `/var/www/html`
 
-Nginx and Supervisor are intentionally excluded so future worker or scheduler runtimes can reuse the same base.
+Nginx and Supervisor are intentionally excluded so future worker runtimes can reuse the same base.
 
 ### Dev (`runtime-dev`)
 
@@ -40,9 +40,11 @@ Extends the base image for production use.
 
 - Nginx with the October CMS 4.x routing configuration
 - PHP-FPM production settings
-- Supervisor managing Nginx and PHP-FPM
+- Supervisor managing Nginx, PHP-FPM, and `php artisan schedule:work`
 - Entrypoint that prepares October storage directories
 - `/_health` endpoint for container health checks
+
+The scheduler starts automatically when `/var/www/html/artisan` is present. Set `OCTOBER_SCHEDULER_ENABLED=false` to disable it (for example when an external scheduler is already in use, or when running multiple web replicas without `onOneServer` / locks). Queue workers are not started by this image; run them on separate compute.
 
 ## Usage
 
@@ -123,6 +125,9 @@ images/
 scripts/
 ├── entrypoint.sh                 # Prepares storage directories on startup
 ├── healthcheck.sh                # Checks /_health from inside the container
+├── scheduler.sh                  # Supervisor wrapper for php artisan schedule:work
+├── prod-scheduler-smoke-test.sh  # Verifies schedule:work lifecycle in runtime-prod
+├── fixtures/                     # Minimal Laravel probe used by the prod scheduler smoke test
 └── devcontainer-smoke-test.sh    # Installs October CMS and verifies /_health and / return HTTP 200
 
 .devcontainer/
@@ -139,7 +144,7 @@ The devcontainer smoke test uses the same install flow and verifies `/` and `/_h
 
 ## CI and publishing
 
-**CI** runs on every push and pull request. It builds all three images and runs smoke tests for PHP, extensions, Nginx configuration, the prod `/_health` endpoint, and a devcontainer flow that installs October CMS and verifies the homepage responds.
+**CI** runs on every push and pull request. It builds all three images and runs smoke tests for PHP, extensions, Nginx configuration, the prod `/_health` endpoint, the production scheduler lifecycle, and a devcontainer flow that installs October CMS and verifies the homepage responds.
 
 **Publish** pushes images to GHCR when:
 

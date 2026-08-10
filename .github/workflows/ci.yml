@@ -132,3 +132,7 @@ jobs:
           echo "Health check failed"
           docker logs "$cid"
           exit 1
+
+      - name: Smoke test production scheduler
+        if: matrix.id == 'prod'
+        run: bash scripts/prod-scheduler-smoke-test.sh runtime-prod:ci
