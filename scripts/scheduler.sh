@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# OCTOBER_SCHEDULER_ENABLED defaults to true so production containers run
-# Laravel's schedule:work automatically. Set to false/0/off/no to disable.
-enabled="${OCTOBER_SCHEDULER_ENABLED:-true}"
+# OCTOBER_SCHEDULER_ENABLED defaults to false. Set to true/1/on/yes to run
+# Laravel's schedule:work in the production container.
+enabled="${OCTOBER_SCHEDULER_ENABLED:-false}"
 normalized="$(printf '%s' "${enabled}" | tr '[:upper:]' '[:lower:]')"
 
 case "${normalized}" in
-    0|false|no|off)
+    1|true|yes|on)
+        ;;
+    *)
         echo "October scheduler disabled (OCTOBER_SCHEDULER_ENABLED=${enabled})."
         exec sleep infinity
         ;;

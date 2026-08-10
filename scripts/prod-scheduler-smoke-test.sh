@@ -159,11 +159,24 @@ fi
 docker rm "${cid}" >/dev/null
 cid=""
 
-echo "Verifying empty document root remains healthy (scheduler idles without artisan)..."
+echo "Verifying scheduler is disabled by default..."
 cid="$(docker run -d "${image}")"
 wait_for_health
 wait_for_program nginx
 wait_for_program php-fpm
+wait_for_program scheduler
+docker logs "${cid}" 2>&1 | grep -F 'October scheduler disabled'
+if process_args | grep -F 'artisan schedule:work'; then
+    echo "schedule:work should not start when scheduler is disabled by default"
+    process_args
+    exit 1
+fi
+docker rm -f "${cid}" >/dev/null
+cid=""
+
+echo "Verifying empty document root idles when enabled without artisan..."
+cid="$(docker run -d -e OCTOBER_SCHEDULER_ENABLED=true "${image}")"
+wait_for_health
 wait_for_program scheduler
 docker logs "${cid}" 2>&1 | grep -F 'artisan not found'
 if process_args | grep -F 'artisan schedule:work'; then
@@ -174,7 +187,7 @@ fi
 docker rm -f "${cid}" >/dev/null
 cid=""
 
-echo "Verifying OCTOBER_SCHEDULER_ENABLED=false disables schedule:work..."
+echo "Verifying OCTOBER_SCHEDULER_ENABLED=false keeps schedule:work off..."
 cid="$(docker run -d \
     -e OCTOBER_SCHEDULER_ENABLED=false \
     -v "${workdir}:/var/www/html" \

@@ -44,7 +44,7 @@ Extends the base image for production use.
 - Entrypoint that prepares October storage directories
 - `/_health` endpoint for container health checks
 
-The scheduler starts automatically when `/var/www/html/artisan` is present. Set `OCTOBER_SCHEDULER_ENABLED=false` to disable it (for example when an external scheduler is already in use, or when running multiple web replicas without `onOneServer` / locks). Queue workers are not started by this image; run them on separate compute.
+The scheduler is opt-in. Set `OCTOBER_SCHEDULER_ENABLED=true` to run `php artisan schedule:work` when `/var/www/html/artisan` is present. Queue workers are not started by this image; run them on separate compute.
 
 ## Usage
 
