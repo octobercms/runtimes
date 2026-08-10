@@ -136,12 +136,13 @@ docker run --rm -p 8080:80 runtime-prod:local
 curl http://localhost:8080/_health
 ```
 
-Run the worker image locally:
+Run the worker image locally (mount an October/Laravel app that includes `artisan`):
 
 ```bash
-docker run --rm runtime-worker:local
+docker run --rm -v "$PWD:/var/www/html" runtime-worker:local
 # or with a platform-specific override:
-docker run --rm runtime-worker:local php artisan queue:work --tries=3
+docker run --rm -v "$PWD:/var/www/html" runtime-worker:local \
+  php artisan queue:work --tries=3
 ```
 
 ## Project structure
