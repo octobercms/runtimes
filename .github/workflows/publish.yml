@@ -50,6 +50,10 @@ jobs:
             dockerfile: images/prod/Dockerfile
             ecr_repository_env: ECR_RUNTIME_PROD_REPOSITORY
 
+          - image: runtime-worker
+            dockerfile: images/worker/Dockerfile
+            ecr_repository_env: ''
+
     steps:
       - uses: actions/checkout@v6
 

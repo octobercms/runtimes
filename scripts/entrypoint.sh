@@ -8,6 +8,7 @@ storage_dirs=(
     storage/framework/views
     storage/logs
     bootstrap/cache
+    database
 )
 
 for dir in "${storage_dirs[@]}"; do
@@ -18,5 +19,11 @@ for dir in "${storage_dirs[@]}"; do
         chown -R www-data:www-data "${path}"
     fi
 done
+
+if [[ "$(id -u)" -eq 0 && -n "${OCTOBER_RUNTIME_USER:-}" ]]; then
+    if id "${OCTOBER_RUNTIME_USER}" >/dev/null 2>&1; then
+        exec setpriv --reuid="${OCTOBER_RUNTIME_USER}" --regid="${OCTOBER_RUNTIME_USER}" --init-groups -- "$@"
+    fi
+fi
 
 exec "$@"
