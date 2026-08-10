@@ -137,7 +137,10 @@ docker rm "${cid}" >/dev/null
 cid=""
 
 echo "Verifying overridden queue:work command..."
-rm -f "${workdir}/storage/app/queue-job-ran"
+docker run --rm --entrypoint bash \
+    -v "${workdir}:/var/www/html" \
+    "${image}" \
+    -lc 'rm -f /var/www/html/storage/app/queue-job-ran'
 docker run --rm \
     --entrypoint php \
     -v "${workdir}:/var/www/html" \
