@@ -129,22 +129,24 @@ echo "Scheduled task executed successfully."
 echo "Verifying scheduler restarts after unexpected exit..."
 old_pid="$(docker exec "${cid}" supervisorctl pid scheduler)"
 docker exec "${cid}" bash -lc "kill -9 ${old_pid}"
-for _ in $(seq 1 30); do
+restarted=false
+for attempt in $(seq 1 30); do
     new_pid="$(docker exec "${cid}" supervisorctl pid scheduler 2>/dev/null || true)"
     if [[ -n "${new_pid}" && "${new_pid}" != "0" && "${new_pid}" != "${old_pid}" ]]; then
         if supervisor_status | grep -E '^scheduler[[:space:]]+RUNNING'; then
             echo "Scheduler restarted successfully (pid ${old_pid} -> ${new_pid})."
+            restarted=true
             break
         fi
     fi
     sleep 1
-    if [[ "${_}" -eq 30 ]]; then
-        echo "Scheduler did not restart after unexpected exit"
-        supervisor_status || true
-        docker logs "${cid}"
-        exit 1
-    fi
 done
+if [[ "${restarted}" != "true" ]]; then
+    echo "Scheduler did not restart after unexpected exit"
+    supervisor_status || true
+    docker logs "${cid}"
+    exit 1
+fi
 
 echo "Verifying scheduler terminates cleanly on container stop..."
 docker stop -t 30 "${cid}" >/dev/null
