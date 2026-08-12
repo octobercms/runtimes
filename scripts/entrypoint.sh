@@ -22,15 +22,13 @@ should_chown_storage() {
 
 dir_writable_by_www_data() {
     local path="$1"
-    # Avoid recursive walks; probe writability as www-data when possible.
-    if command -v setpriv >/dev/null 2>&1; then
-        setpriv --reuid=www-data --regid=www-data --clear-groups -- test -w "${path}"
-        return $?
+    # Probe as www-data. A non-root owner (e.g. UID 1000 bind mount mode 0755) is
+    # not necessarily writable by UID 33 — do not infer writability from ownership.
+    # setpriv is required for OCTOBER_RUNTIME_USER drops and is present on these images.
+    if ! command -v setpriv >/dev/null 2>&1; then
+        return 1
     fi
-    # Fallback when setpriv is unavailable: reject root-owned paths.
-    local owner
-    owner="$(stat -c '%u' "${path}" 2>/dev/null || echo 0)"
-    [[ "${owner}" != "0" ]]
+    setpriv --reuid=www-data --regid=www-data --clear-groups -- test -w "${path}"
 }
 
 for dir in "${storage_dirs[@]}"; do

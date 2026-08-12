@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     nginx \
     supervisor \
+    util-linux \
     && docker-php-ext-install -j"$(nproc)" \
         pdo_pgsql \
     && rm -rf /var/lib/apt/lists/* \

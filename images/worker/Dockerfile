@@ -8,6 +8,7 @@ RUN chmod +x /tmp/install-october-php-extensions.sh \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     libsqlite3-dev \
+    util-linux \
     && docker-php-ext-install -j"$(nproc)" \
         pcntl \
         pdo_pgsql \
