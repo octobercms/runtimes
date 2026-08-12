@@ -41,18 +41,30 @@ jobs:
           - image: runtime-base
             dockerfile: images/base/Dockerfile
             ecr_repository_env: ECR_RUNTIME_BASE_REPOSITORY
+            build_args: ''
+
+          - image: runtime-build
+            dockerfile: images/build/Dockerfile
+            ecr_repository_env: ''
+            build_args: |
+              BASE_IMAGE=ghcr.io/octobercms/runtime-base:php85
 
           - image: runtime-dev
             dockerfile: images/dev/Dockerfile
             ecr_repository_env: ''
+            build_args: |
+              BUILD_IMAGE=ghcr.io/octobercms/runtime-build:php85
 
           - image: runtime-prod
             dockerfile: images/prod/Dockerfile
             ecr_repository_env: ECR_RUNTIME_PROD_REPOSITORY
+            build_args: |
+              BASE_IMAGE=ghcr.io/octobercms/runtime-base:php85
 
           - image: runtime-worker
             dockerfile: images/worker/Dockerfile
             ecr_repository_env: ''
+            build_args: ''
 
     steps:
       - uses: actions/checkout@v6
@@ -110,8 +122,7 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
-          build-args: |
-            BASE_IMAGE=${{ env.IMAGE_PREFIX }}/runtime-base:${{ env.MOVING_TAG }}
+          build-args: ${{ matrix.build_args }}
           tags: |
             ${{ steps.ghcr-meta.outputs.tags }}
             ${{ steps.ecr-meta.outputs.tags }}

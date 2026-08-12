@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# OCTOBER_SCHEDULER_ENABLED defaults to false. Set to true/1/on/yes to run
-# Laravel's schedule:work in the production container.
+# OCTOBER_SCHEDULER_ENABLED defaults to false. The entrypoint sets
+# OCTOBER_SCHEDULER_AUTOSTART so Supervisor does not start this program when
+# disabled — no idle `sleep infinity` process in every web task.
+#
+# When enabled, set to true/1/on/yes to run Laravel's schedule:work.
 enabled="${OCTOBER_SCHEDULER_ENABLED:-false}"
 normalized="$(printf '%s' "${enabled}" | tr '[:upper:]' '[:lower:]')"
 
@@ -11,7 +14,7 @@ case "${normalized}" in
         ;;
     *)
         echo "October scheduler disabled (OCTOBER_SCHEDULER_ENABLED=${enabled})."
-        exec sleep infinity
+        exit 0
         ;;
 esac
 

@@ -1,5 +1,9 @@
-ARG BASE_IMAGE=ghcr.io/octobercms/runtime-base:php85
-FROM ${BASE_IMAGE}
+FROM php:8.5-cli
+
+COPY scripts/docker/install-october-php-extensions.sh /tmp/install-october-php-extensions.sh
+RUN chmod +x /tmp/install-october-php-extensions.sh \
+    && /tmp/install-october-php-extensions.sh \
+    && rm -f /tmp/install-october-php-extensions.sh
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
@@ -23,6 +27,8 @@ ENV OCTOBER_RUNTIME_USER=www-data \
 # www-data must not inherit HOME=/root. libpq probes $HOME/.postgresql/postgresql.crt;
 # Permission denied on /root aborts SSL connects even when a client cert is not required
 # (e.g. Neon sslmode=require). PGSSLCERT redirects the probe away from /root as a guard.
+
+WORKDIR /var/www/html
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["php", "artisan", "queue:work"]

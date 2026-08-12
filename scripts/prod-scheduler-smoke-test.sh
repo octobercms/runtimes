@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-image="${1:?Usage: prod-scheduler-smoke-test.sh IMAGE}"
+image="${1:?Usage: prod-scheduler-smoke-test.sh IMAGE [BUILD_IMAGE]}"
+build_image="${2:-runtime-build:ci}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fixtures_dir="${script_dir}/fixtures"
 
@@ -20,7 +21,8 @@ cleanup() {
 trap cleanup EXIT
 
 supervisor_status() {
-    docker exec "${cid}" supervisorctl status
+    # supervisorctl exits non-zero when any program is not RUNNING (e.g. STOPPED).
+    docker exec "${cid}" supervisorctl status || true
 }
 
 wait_for_health() {
@@ -51,6 +53,21 @@ wait_for_program() {
     return 1
 }
 
+wait_for_program_stopped() {
+    local program="$1"
+    local attempts="${2:-30}"
+    for _ in $(seq 1 "${attempts}"); do
+        if supervisor_status | grep -E "^${program}[[:space:]]+STOPPED"; then
+            return 0
+        fi
+        sleep 1
+    done
+    echo "Supervisor program ${program} did not remain STOPPED"
+    supervisor_status || true
+    docker logs "${cid}" || true
+    return 1
+}
+
 wait_for_file() {
     local path="$1"
     local attempts="${2:-90}"
@@ -75,7 +92,19 @@ process_args() {
     '
 }
 
-echo "Creating minimal Laravel app fixture..."
+echo "Creating minimal Laravel app fixture with ${build_image}..."
+docker run --rm \
+    -v "${workdir}:/app" \
+    -v "${fixtures_dir}:/fixtures:ro" \
+    -w /app \
+    "${build_image}" \
+    bash -lc '
+        set -euo pipefail
+        composer create-project laravel/laravel . --no-interaction --prefer-dist --no-dev
+        mkdir -p app/Console/Commands
+        cp /fixtures/RuntimeProbe.php app/Console/Commands/RuntimeProbe.php
+    '
+
 docker run --rm \
     -v "${workdir}:/app" \
     -v "${fixtures_dir}:/fixtures:ro" \
@@ -83,10 +112,7 @@ docker run --rm \
     "${image}" \
     bash -lc '
         set -euo pipefail
-        composer create-project laravel/laravel . --no-interaction --prefer-dist --no-dev
         php artisan key:generate --force --no-interaction
-        mkdir -p app/Console/Commands
-        cp /fixtures/RuntimeProbe.php app/Console/Commands/RuntimeProbe.php
         php /fixtures/register-runtime-probe.php
         # schedule:work runs as www-data and must write cache/storage/sqlite paths.
         www_uid="$(id -u www-data)"
@@ -159,15 +185,14 @@ fi
 docker rm "${cid}" >/dev/null
 cid=""
 
-echo "Verifying scheduler is disabled by default..."
+echo "Verifying scheduler is disabled by default (no idle process)..."
 cid="$(docker run -d "${image}")"
 wait_for_health
 wait_for_program nginx
 wait_for_program php-fpm
-wait_for_program scheduler
-docker logs "${cid}" 2>&1 | grep -F 'October scheduler disabled'
-if process_args | grep -F 'artisan schedule:work'; then
-    echo "schedule:work should not start when scheduler is disabled by default"
+wait_for_program_stopped scheduler
+if process_args | grep -Eiq 'schedule:work|sleep infinity'; then
+    echo "Disabled scheduler should not leave schedule:work or sleep infinity running"
     process_args
     exit 1
 fi
@@ -193,12 +218,11 @@ cid="$(docker run -d \
     -v "${workdir}:/var/www/html" \
     "${image}")"
 wait_for_health
-wait_for_program scheduler
+wait_for_program_stopped scheduler
 if process_args | grep -F 'artisan schedule:work'; then
     echo "schedule:work is running despite OCTOBER_SCHEDULER_ENABLED=false"
     process_args
     exit 1
 fi
-docker logs "${cid}" 2>&1 | grep -F 'October scheduler disabled'
 
 echo "Production scheduler smoke test passed"

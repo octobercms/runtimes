@@ -24,11 +24,15 @@ RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/healthcheck.sh /usr/loc
 # libpq probes $HOME/.postgresql/postgresql.crt; Permission denied on /root aborts
 # SSL connects even when a client cert is not required (e.g. Neon sslmode=require).
 ENV HOME=/var/www \
-    PGSSLCERT=/tmp/postgresql.crt
+    PGSSLCERT=/tmp/postgresql.crt \
+    OCTOBER_SCHEDULER_ENABLED=false \
+    OCTOBER_SCHEDULER_AUTOSTART=false
 
 EXPOSE 80
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+# start-period matches typical October Cloud ENI + layer + supervisord/FPM/nginx boot.
+# Healthy is still reported as soon as the probe passes; this only avoids false failures.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
     CMD ["/usr/local/bin/healthcheck.sh"]
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

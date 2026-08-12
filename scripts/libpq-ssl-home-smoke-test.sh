@@ -74,7 +74,10 @@ echo 'PGSSLCERT=' . getenv('PGSSLCERT') . "\n";
 echo 'USER=' . (posix_getpwuid(posix_geteuid())['name'] ?? 'unknown') . "\n";
 PHP
 
-    cid="$(docker run -d -v "${workdir}:/var/www/html" "${image}")"
+    cid="$(docker run -d \
+        -e OCTOBER_SCHEDULER_ENABLED=true \
+        -v "${workdir}:/var/www/html" \
+        "${image}")"
 
     for _ in $(seq 1 30); do
         if docker exec "${cid}" /usr/local/bin/healthcheck.sh >/dev/null 2>&1; then

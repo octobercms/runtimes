@@ -1,5 +1,5 @@
-ARG BASE_IMAGE=ghcr.io/octobercms/runtime-base:php85
-FROM ${BASE_IMAGE}
+ARG BUILD_IMAGE=ghcr.io/octobercms/runtime-build:php85
+FROM ${BUILD_IMAGE}
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
