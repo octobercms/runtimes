@@ -22,6 +22,11 @@ done
 
 if [[ "$(id -u)" -eq 0 && -n "${OCTOBER_RUNTIME_USER:-}" ]]; then
     if id "${OCTOBER_RUNTIME_USER}" >/dev/null 2>&1; then
+        # Dropping uid without fixing HOME leaves HOME=/root; libpq then fails opening
+        # /root/.postgresql/postgresql.crt with Permission denied on SSL connects.
+        passwd_home="$(getent passwd "${OCTOBER_RUNTIME_USER}" | cut -d: -f6 || true)"
+        export HOME="${passwd_home:-/var/www}"
+        export PGSSLCERT="${PGSSLCERT:-/tmp/postgresql.crt}"
         exec setpriv --reuid="${OCTOBER_RUNTIME_USER}" --regid="${OCTOBER_RUNTIME_USER}" --init-groups -- "$@"
     fi
 fi
