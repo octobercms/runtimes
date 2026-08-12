@@ -8,13 +8,13 @@ Official Docker runtime images for [October Cloud](https://octobercms.cloud). Th
 
 The following images are published to GitHub Container Registry (GHCR) under the `octobercms` organization.
 
-| Image                                                                                    | Purpose                                                  |
-| ---------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| [`runtime-base`](https://github.com/octobercms/runtimes/pkgs/container/runtime-base)     | Lean shared October/PHP foundation                       |
-| [`runtime-build`](https://github.com/octobercms/runtimes/pkgs/container/runtime-build)   | Composer/Node tooling for app image builds               |
-| [`runtime-dev`](https://github.com/octobercms/runtimes/pkgs/container/runtime-dev)       | Local/development runtime                                |
-| [`runtime-prod`](https://github.com/octobercms/runtimes/pkgs/container/runtime-prod)     | Production HTTP/web runtime                              |
-| [`runtime-worker`](https://github.com/octobercms/runtimes/pkgs/container/runtime-worker) | Production queue-worker runtime (CLI)                    |
+| Image                                                                                    | Purpose                                    |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------ |
+| [`runtime-base`](https://github.com/octobercms/runtimes/pkgs/container/runtime-base)     | Lean shared October/PHP foundation         |
+| [`runtime-build`](https://github.com/octobercms/runtimes/pkgs/container/runtime-build)   | Composer/Node tooling for app image builds |
+| [`runtime-dev`](https://github.com/octobercms/runtimes/pkgs/container/runtime-dev)       | Local/development runtime                  |
+| [`runtime-prod`](https://github.com/octobercms/runtimes/pkgs/container/runtime-prod)     | Production HTTP/web runtime                |
+| [`runtime-worker`](https://github.com/octobercms/runtimes/pkgs/container/runtime-worker) | Production queue-worker runtime (CLI)      |
 
 ```text
 runtime-base
@@ -127,7 +127,7 @@ For production, prefer an immutable tag such as a date-SHA or semver tag rather 
 
 ## Local builds
 
-Build the base image first, then build and specialized runtimes:
+Build the base image first, then build the specialized runtimes:
 
 ```bash
 docker build -t runtime-base:local -f images/base/Dockerfile .
@@ -223,10 +223,10 @@ Images are published as public packages on GHCR and can be pulled without authen
 
 The prod image separates liveness from readiness:
 
-| Path       | Behavior                                      | Use for                                      |
-| ---------- | --------------------------------------------- | -------------------------------------------- |
-| `GET /_alive`  | Static nginx `200 ok` (does not hit PHP)  | Docker `HEALTHCHECK`, process liveness       |
-| `GET /_health` | Passed to PHP-FPM / `index.php`           | ALB / target-group readiness                 |
+| Path           | Behavior                                 | Use for                                |
+| -------------- | ---------------------------------------- | -------------------------------------- |
+| `GET /_alive`  | Static nginx `200 ok` (does not hit PHP) | Docker `HEALTHCHECK`, process liveness |
+| `GET /_health` | Passed to PHP-FPM / `index.php`          | ALB / target-group readiness           |
 
 `scripts/healthcheck.sh` probes `/_alive` so container health does not depend on application config. Orchestrators that should wait until the app can serve traffic must probe `/_health` (October Cloud serves this via `HealthCheckResponse` when the cloud module is present).
 
