@@ -6,7 +6,10 @@ RUN chmod +x /tmp/install-october-php-extensions.sh \
     && rm -f /tmp/install-october-php-extensions.sh
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    $PHPIZE_DEPS \
+    libpq5 \
     libpq-dev \
+    libsqlite3-0 \
     libsqlite3-dev \
     util-linux \
     && docker-php-ext-install -j"$(nproc)" \
@@ -14,6 +17,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         pdo_pgsql \
         pdo_sqlite \
         posix \
+    && { apt-mark auto libc6-dev libcrypt-dev linux-libc-dev libc-dev-bin rpcsvc-proto >/dev/null 2>&1 || true; } \
+    && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
+        $PHPIZE_DEPS \
+        libpq-dev \
+        libsqlite3-dev \
+    && apt-mark manual libpq5 libsqlite3-0 >/dev/null \
     && rm -rf /var/lib/apt/lists/*
 
 COPY config/php/runtime.ini /usr/local/etc/php/conf.d/runtime.ini
