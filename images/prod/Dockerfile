@@ -20,6 +20,12 @@ COPY scripts/scheduler.sh /usr/local/bin/scheduler.sh
 
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/healthcheck.sh /usr/local/bin/scheduler.sh
 
+# www-data (and other non-root runtime users) must not inherit HOME=/root.
+# libpq probes $HOME/.postgresql/postgresql.crt; Permission denied on /root aborts
+# SSL connects even when a client cert is not required (e.g. Neon sslmode=require).
+ENV HOME=/var/www \
+    PGSSLCERT=/tmp/postgresql.crt
+
 EXPOSE 80
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
