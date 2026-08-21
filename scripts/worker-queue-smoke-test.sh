@@ -122,6 +122,14 @@ if [[ "${worker_user}" != "www-data" ]]; then
     exit 1
 fi
 
+echo "Verifying cache warm did not leave root-owned runtime files..."
+root_owned="$(docker exec "${cid}" bash -lc 'find /var/www/html/storage /var/www/html/bootstrap/cache -user root -print')"
+if [[ -n "${root_owned}" ]]; then
+    echo "Root-owned files after artisan about would break www-data writers:"
+    echo "${root_owned}"
+    exit 1
+fi
+
 echo "Waiting for queued job marker..."
 wait_for_file "${workdir}/storage/app/queue-job-ran" 90
 echo "Queued job processed successfully."
