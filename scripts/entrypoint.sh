@@ -20,6 +20,14 @@ for dir in "${storage_dirs[@]}"; do
     fi
 done
 
+if [ -f /var/www/html/artisan ]; then
+    rm -f /var/www/html/storage/framework/cache/cms/disabled.php
+    (cd /var/www/html && php artisan about >/dev/null 2>&1) || true
+    if id www-data >/dev/null 2>&1; then
+        chown -R www-data:www-data /var/www/html/storage/framework/cache
+    fi
+fi
+
 if [[ "$(id -u)" -eq 0 && -n "${OCTOBER_RUNTIME_USER:-}" ]]; then
     if id "${OCTOBER_RUNTIME_USER}" >/dev/null 2>&1; then
         # Dropping uid without fixing HOME leaves HOME=/root; libpq then fails opening
