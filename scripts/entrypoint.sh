@@ -25,7 +25,6 @@ if [ -f /var/www/html/artisan ]; then
     mkdir -p /var/www/html/storage/framework/cache/cms
     rm -f /var/www/html/storage/framework/cache/cms/disabled.php
     if id www-data >/dev/null 2>&1; then
-        chown -R www-data:www-data /var/www/html/storage/framework/cache
         su -s /bin/sh www-data -c 'cd /var/www/html && php artisan about' >/dev/null || true
     else
         (cd /var/www/html && php artisan about >/dev/null) || true
