@@ -240,6 +240,10 @@ jobs:
         if: matrix.id == 'prod'
         run: bash scripts/prod-scheduler-smoke-test.sh runtime-prod:ci runtime-build:ci
 
+      - name: Smoke test prod cache warm
+        if: matrix.id == 'prod'
+        run: bash scripts/cache-warm-smoke-test.sh runtime-prod:ci
+
       - name: Smoke test prod libpq SSL home
         if: matrix.id == 'prod'
         run: bash scripts/libpq-ssl-home-smoke-test.sh runtime-prod:ci
@@ -285,6 +289,10 @@ jobs:
       - name: Smoke test worker queue processing
         if: matrix.id == 'worker'
         run: bash scripts/worker-queue-smoke-test.sh runtime-worker:ci runtime-build:ci
+
+      - name: Smoke test worker cache warm
+        if: matrix.id == 'worker'
+        run: bash scripts/cache-warm-smoke-test.sh runtime-worker:ci
 
       - name: Smoke test worker libpq SSL home
         if: matrix.id == 'worker'

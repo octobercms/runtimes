@@ -129,6 +129,14 @@ cid="$(docker run -d \
 
 wait_for_health
 
+echo "Verifying cache warm did not leave root-owned runtime files..."
+root_owned="$(docker exec "${cid}" bash -lc 'find /var/www/html/storage /var/www/html/bootstrap/cache -user root -print')"
+if [[ -n "${root_owned}" ]]; then
+    echo "Root-owned files after artisan about would break www-data writers:"
+    echo "${root_owned}"
+    exit 1
+fi
+
 echo "Verifying nginx and PHP-FPM are running..."
 wait_for_program nginx
 wait_for_program php-fpm

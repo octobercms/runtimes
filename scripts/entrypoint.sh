@@ -4,6 +4,7 @@ set -euo pipefail
 storage_dirs=(
     storage/app
     storage/framework/cache
+    storage/framework/cache/cms
     storage/framework/sessions
     storage/framework/views
     storage/logs
@@ -63,6 +64,16 @@ if scheduler_enabled; then
     export OCTOBER_SCHEDULER_AUTOSTART=true
 else
     export OCTOBER_SCHEDULER_AUTOSTART=false
+fi
+
+if [ -f /var/www/html/artisan ]; then
+    mkdir -p /var/www/html/storage/framework/cache/cms
+    rm -f /var/www/html/storage/framework/cache/cms/disabled.php
+    if id www-data >/dev/null 2>&1; then
+        su -s /bin/sh www-data -c 'cd /var/www/html && php artisan about' >/dev/null || true
+    else
+        (cd /var/www/html && php artisan about >/dev/null) || true
+    fi
 fi
 
 if [[ "$(id -u)" -eq 0 && -n "${OCTOBER_RUNTIME_USER:-}" ]]; then
