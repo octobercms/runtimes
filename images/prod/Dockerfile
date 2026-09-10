@@ -2,11 +2,19 @@ ARG BASE_IMAGE=ghcr.io/octobercms/runtime-base:php85
 FROM ${BASE_IMAGE}
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    $PHPIZE_DEPS \
+    libpq5 \
     libpq-dev \
     nginx \
     supervisor \
+    util-linux \
     && docker-php-ext-install -j"$(nproc)" \
         pdo_pgsql \
+    && { apt-mark auto libc6-dev libcrypt-dev linux-libc-dev libc-dev-bin rpcsvc-proto >/dev/null 2>&1 || true; } \
+    && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
+        $PHPIZE_DEPS \
+        libpq-dev \
+    && apt-mark manual libpq5 >/dev/null \
     && rm -rf /var/lib/apt/lists/* \
     && rm -f /etc/nginx/sites-enabled/default
 
@@ -24,11 +32,15 @@ RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/healthcheck.sh /usr/loc
 # libpq probes $HOME/.postgresql/postgresql.crt; Permission denied on /root aborts
 # SSL connects even when a client cert is not required (e.g. Neon sslmode=require).
 ENV HOME=/var/www \
-    PGSSLCERT=/tmp/postgresql.crt
+    PGSSLCERT=/tmp/postgresql.crt \
+    OCTOBER_SCHEDULER_ENABLED=false \
+    OCTOBER_SCHEDULER_AUTOSTART=false
 
 EXPOSE 80
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+# start-period matches typical October Cloud ENI + layer + supervisord/FPM/nginx boot.
+# Healthy is still reported as soon as the probe passes; this only avoids false failures.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
     CMD ["/usr/local/bin/healthcheck.sh"]
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

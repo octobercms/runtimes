@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-image="${1:?Usage: worker-queue-smoke-test.sh IMAGE}"
+image="${1:?Usage: worker-queue-smoke-test.sh IMAGE [BUILD_IMAGE]}"
+build_image="${2:-runtime-build:ci}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fixtures_dir="${script_dir}/fixtures"
 
@@ -61,9 +62,38 @@ assert_no_web_stack() {
         echo "supervisord should not be installed in the worker runtime"
         exit 1
     fi
+
+    if docker exec "${cid}" bash -lc 'command -v php-fpm' >/dev/null 2>&1; then
+        echo "php-fpm should not be installed in the worker runtime"
+        exit 1
+    fi
 }
 
-echo "Creating minimal Laravel app fixture..."
+assert_no_build_tooling() {
+    if docker exec "${cid}" bash -lc 'command -v node' >/dev/null 2>&1; then
+        echo "node should not be installed in the worker runtime"
+        exit 1
+    fi
+    if docker exec "${cid}" bash -lc 'command -v composer' >/dev/null 2>&1; then
+        echo "composer should not be installed in the worker runtime"
+        exit 1
+    fi
+}
+
+echo "Creating minimal Laravel app fixture with ${build_image}..."
+docker run --rm \
+    -v "${workdir}:/var/www/html" \
+    -v "${fixtures_dir}:/fixtures:ro" \
+    -w /var/www/html \
+    "${build_image}" \
+    bash -lc '
+        set -euo pipefail
+        composer create-project laravel/laravel . --no-interaction --prefer-dist --no-dev
+        mkdir -p app/Jobs database
+        touch database/database.sqlite
+        cp /fixtures/QueueProbeJob.php app/Jobs/QueueProbeJob.php
+    '
+
 docker run --rm \
     --entrypoint bash \
     -v "${workdir}:/var/www/html" \
@@ -76,11 +106,7 @@ docker run --rm \
     "${image}" \
     -lc '
         set -euo pipefail
-        composer create-project laravel/laravel . --no-interaction --prefer-dist --no-dev
         php artisan key:generate --force --no-interaction
-        mkdir -p app/Jobs database
-        touch database/database.sqlite
-        cp /fixtures/QueueProbeJob.php app/Jobs/QueueProbeJob.php
         php artisan migrate --force --no-interaction
         php /fixtures/dispatch-queue-probe.php
         # Worker runs as www-data and must write cache/storage/sqlite paths.
@@ -113,6 +139,7 @@ if ! process_args | grep -F 'artisan queue:work'; then
 fi
 
 assert_no_web_stack
+assert_no_build_tooling
 
 echo "Verifying worker runs as www-data..."
 worker_user="$(docker exec "${cid}" bash -lc 'stat -c %U /proc/1')"
@@ -204,12 +231,16 @@ fi
 docker rm "${cid}" >/dev/null
 cid=""
 
-echo "Verifying PHP-FPM is not started by the worker image defaults..."
+echo "Verifying PHP-FPM is not present in the worker image..."
 cid="$(docker run -d --entrypoint bash "${image}" -lc 'echo cli-ok; sleep 30')"
 sleep 1
 if process_args | grep -Eiq 'php-fpm'; then
     echo "php-fpm should not start in the worker runtime"
     process_args
+    exit 1
+fi
+if docker exec "${cid}" bash -lc 'command -v php-fpm' >/dev/null 2>&1; then
+    echo "php-fpm binary should not exist in the worker runtime"
     exit 1
 fi
 docker logs "${cid}" 2>&1 | grep -F 'cli-ok'

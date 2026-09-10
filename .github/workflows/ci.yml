@@ -15,6 +15,9 @@ jobs:
           - id: base
             image: runtime-base
             dockerfile: images/base/Dockerfile
+          - id: build
+            image: runtime-build
+            dockerfile: images/build/Dockerfile
           - id: dev
             image: runtime-dev
             dockerfile: images/dev/Dockerfile
@@ -29,30 +32,65 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Build base image
+        if: matrix.id == 'base' || matrix.id == 'build' || matrix.id == 'dev' || matrix.id == 'prod' || matrix.id == 'worker'
         run: docker build -t runtime-base:ci -f images/base/Dockerfile .
 
-      - name: Build image
-        if: matrix.id != 'base'
+      - name: Build build image
+        if: matrix.id == 'build' || matrix.id == 'dev' || matrix.id == 'prod' || matrix.id == 'worker'
         run: |
-          docker build -t ${{ matrix.image }}:ci \
+          docker build -t runtime-build:ci \
             --build-arg BASE_IMAGE=runtime-base:ci \
-            -f ${{ matrix.dockerfile }} .
+            -f images/build/Dockerfile .
+
+      - name: Build dev image
+        if: matrix.id == 'dev'
+        run: |
+          docker build -t runtime-dev:ci \
+            --build-arg BUILD_IMAGE=runtime-build:ci \
+            -f images/dev/Dockerfile .
+
+      - name: Build prod image
+        if: matrix.id == 'prod'
+        run: |
+          docker build -t runtime-prod:ci \
+            --build-arg BASE_IMAGE=runtime-base:ci \
+            -f images/prod/Dockerfile .
+
+      - name: Build worker image
+        if: matrix.id == 'worker'
+        run: docker build -t runtime-worker:ci -f images/worker/Dockerfile .
 
       - name: Smoke test PHP version
-        if: matrix.id == 'base'
-        run: docker run --rm runtime-base:ci php -v | grep -F 'PHP 8.5'
+        if: matrix.id == 'base' || matrix.id == 'worker'
+        run: docker run --rm ${{ matrix.image }}:ci php -v | grep -F 'PHP 8.5'
 
-      - name: Smoke test Composer
-        if: matrix.id == 'base'
-        run: docker run --rm runtime-base:ci composer --version
-
-      - name: Smoke test Node tooling
+      - name: Smoke test base excludes build tooling
         if: matrix.id == 'base'
         run: |
-          docker run --rm runtime-base:ci node --version
-          docker run --rm runtime-base:ci npm --version
-          docker run --rm runtime-base:ci pnpm --version
-          docker run --rm runtime-base:ci yarn --version
+          if docker run --rm --entrypoint bash runtime-base:ci -lc 'command -v composer'; then
+            echo "composer should not be installed in runtime-base"
+            exit 1
+          fi
+          if docker run --rm --entrypoint bash runtime-base:ci -lc 'command -v node'; then
+            echo "node should not be installed in runtime-base"
+            exit 1
+          fi
+          if docker run --rm --entrypoint bash runtime-base:ci -lc 'command -v git'; then
+            echo "git should not be installed in runtime-base"
+            exit 1
+          fi
+
+      - name: Smoke test Composer
+        if: matrix.id == 'build'
+        run: docker run --rm runtime-build:ci composer --version
+
+      - name: Smoke test Node tooling
+        if: matrix.id == 'build'
+        run: |
+          docker run --rm runtime-build:ci node --version
+          docker run --rm runtime-build:ci npm --version
+          docker run --rm runtime-build:ci pnpm --version
+          docker run --rm runtime-build:ci yarn --version
 
       - name: Smoke test base extensions
         if: matrix.id == 'base'
@@ -107,21 +145,41 @@ jobs:
         if: matrix.id == 'prod'
         run: |
           docker run --rm runtime-prod:ci php -r '
-          $required = ["pdo_pgsql"];
+          $required = ["pdo_pgsql", "Zend OPcache"];
           foreach ($required as $extension) {
               if (!extension_loaded($extension)) {
                   fwrite(STDERR, "Missing extension: {$extension}\n");
                   exit(1);
               }
           }
-          echo "All prod extensions loaded\n";
+          if ((int) ini_get("opcache.enable") !== 1) {
+              fwrite(STDERR, "opcache.enable must be 1 in production\n");
+              exit(1);
+          }
+          if ((int) ini_get("opcache.validate_timestamps") !== 0) {
+              fwrite(STDERR, "opcache.validate_timestamps must be 0 in production\n");
+              exit(1);
+          }
+          echo "All prod extensions and OPcache settings loaded\n";
           '
+
+      - name: Smoke test prod excludes build tooling
+        if: matrix.id == 'prod'
+        run: |
+          if docker run --rm --entrypoint bash runtime-prod:ci -lc 'command -v composer'; then
+            echo "composer should not be installed in runtime-prod"
+            exit 1
+          fi
+          if docker run --rm --entrypoint bash runtime-prod:ci -lc 'command -v node'; then
+            echo "node should not be installed in runtime-prod"
+            exit 1
+          fi
 
       - name: Smoke test supervisor
         if: matrix.id == 'prod'
         run: docker run --rm runtime-prod:ci supervisord --version
 
-      - name: Smoke test health endpoint
+      - name: Smoke test liveness endpoint
         if: matrix.id == 'prod'
         run: |
           cid=$(docker run -d runtime-prod:ci)
@@ -132,13 +190,55 @@ jobs:
             fi
             sleep 1
           done
-          echo "Health check failed"
+          echo "Liveness health check failed"
           docker logs "$cid"
           exit 1
 
+      - name: Smoke test readiness endpoint
+        if: matrix.id == 'prod'
+        run: |
+          workdir=$(mktemp -d)
+          chmod 755 "${workdir}"
+          cat >"${workdir}/index.php" <<'PHP'
+          <?php
+          header('Content-Type: text/plain');
+          $uri = $_SERVER['REQUEST_URI'] ?? '';
+          if (str_starts_with($uri, '/_health')) {
+              http_response_code(200);
+              echo "ready\n";
+              exit;
+          }
+          http_response_code(404);
+          echo "not found\n";
+          PHP
+          cid=$(docker run -d -v "${workdir}:/var/www/html" runtime-prod:ci)
+          cleanup() {
+            docker rm -f "$cid" >/dev/null 2>&1 || true
+            rm -rf "${workdir}" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          for i in $(seq 1 30); do
+            if docker exec "$cid" /usr/local/bin/healthcheck.sh; then
+              break
+            fi
+            sleep 1
+          done
+          docker exec "$cid" /usr/local/bin/healthcheck.sh
+          body=$(docker exec "$cid" curl -fsS http://127.0.0.1/_health | tr -d '\r\n')
+          if [[ "${body}" != "ready" ]]; then
+            echo "Expected /_health to hit PHP and return ready, got: ${body}"
+            docker logs "$cid"
+            exit 1
+          fi
+          alive=$(docker exec "$cid" curl -fsS http://127.0.0.1/_alive | tr -d '\r\n')
+          if [[ "${alive}" != "ok" ]]; then
+            echo "Expected /_alive static ok, got: ${alive}"
+            exit 1
+          fi
+
       - name: Smoke test production scheduler
         if: matrix.id == 'prod'
-        run: bash scripts/prod-scheduler-smoke-test.sh runtime-prod:ci
+        run: bash scripts/prod-scheduler-smoke-test.sh runtime-prod:ci runtime-build:ci
 
       - name: Smoke test prod cache warm
         if: matrix.id == 'prod'
@@ -152,7 +252,7 @@ jobs:
         if: matrix.id == 'worker'
         run: |
           docker run --rm runtime-worker:ci php -r '
-          $required = ["pcntl", "pdo_pgsql", "pdo_sqlite", "posix"];
+          $required = ["pcntl", "pdo_pgsql", "pdo_sqlite", "posix", "Zend OPcache"];
           foreach ($required as $extension) {
               if (!extension_loaded($extension)) {
                   fwrite(STDERR, "Missing extension: {$extension}\n");
@@ -173,10 +273,22 @@ jobs:
             echo "supervisord should not be installed in runtime-worker"
             exit 1
           fi
+          if docker run --rm --entrypoint bash runtime-worker:ci -lc 'command -v php-fpm'; then
+            echo "php-fpm should not be installed in runtime-worker"
+            exit 1
+          fi
+          if docker run --rm --entrypoint bash runtime-worker:ci -lc 'command -v node'; then
+            echo "node should not be installed in runtime-worker"
+            exit 1
+          fi
+          if docker run --rm --entrypoint bash runtime-worker:ci -lc 'command -v composer'; then
+            echo "composer should not be installed in runtime-worker"
+            exit 1
+          fi
 
       - name: Smoke test worker queue processing
         if: matrix.id == 'worker'
-        run: bash scripts/worker-queue-smoke-test.sh runtime-worker:ci
+        run: bash scripts/worker-queue-smoke-test.sh runtime-worker:ci runtime-build:ci
 
       - name: Smoke test worker cache warm
         if: matrix.id == 'worker'

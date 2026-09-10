@@ -16,16 +16,16 @@ docker exec "${cid}" bash /usr/local/bin/devcontainer-post-create.sh
 echo "Starting web stack..."
 docker exec -d "${cid}" bash /usr/local/bin/devcontainer-post-start.sh
 
-echo "Waiting for /_health..."
+echo "Waiting for /_alive (liveness)..."
 for _ in $(seq 1 30); do
-    if [[ "$(http_status http://127.0.0.1/_health)" == "200" ]]; then
+    if [[ "$(http_status http://127.0.0.1/_alive)" == "200" ]]; then
         break
     fi
     sleep 1
 done
 
-if [[ "$(http_status http://127.0.0.1/_health)" != "200" ]]; then
-    echo "Devcontainer smoke test failed: /_health did not return HTTP 200"
+if [[ "$(http_status http://127.0.0.1/_alive)" != "200" ]]; then
+    echo "Devcontainer smoke test failed: /_alive did not return HTTP 200"
     docker logs "${cid}"
     exit 1
 fi
