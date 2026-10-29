@@ -32,8 +32,20 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+# Replace vulnerable npm-bundled brace-expansion / undici until Node ships patched npm.
 RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+    && npm_mods=/usr/local/lib/node_modules/npm/node_modules \
+    && tmp="$(mktemp -d)" \
+    && npm install --prefix "$tmp" --omit=dev brace-expansion@5.0.12 undici@6.29.1 \
+    && rm -rf "$npm_mods/brace-expansion" "$npm_mods/undici" \
+    && mv "$tmp/node_modules/brace-expansion" "$npm_mods/brace-expansion" \
+    && mv "$tmp/node_modules/undici" "$npm_mods/undici" \
+    && if [ -d "$tmp/node_modules/balanced-match" ]; then \
+         rm -rf "$npm_mods/balanced-match"; \
+         mv "$tmp/node_modules/balanced-match" "$npm_mods/balanced-match"; \
+       fi \
+    && rm -rf "$tmp" /root/.npm \
     && if [ -e /usr/local/lib/node_modules/corepack/dist/corepack.js ]; then \
          ln -sf /usr/local/lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack; \
        else \
