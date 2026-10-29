@@ -1,7 +1,9 @@
 ARG PHP_VERSION=8.5
-FROM php:${PHP_VERSION}-fpm
-
 ARG NODE_VERSION=26
+
+FROM node:${NODE_VERSION}-bookworm AS node
+
+FROM php:${PHP_VERSION}-fpm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
@@ -28,11 +30,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-COPY --from=node:${NODE_VERSION}-bookworm /usr/local/bin/node /usr/local/bin/node
-COPY --from=node:${NODE_VERSION}-bookworm /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
-    && ln -sf /usr/local/lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack \
+    && if [ -e /usr/local/lib/node_modules/corepack/dist/corepack.js ]; then \
+         ln -sf /usr/local/lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack; \
+       else \
+         npm install -g corepack; \
+       fi \
     && corepack enable \
     && corepack prepare yarn@stable --activate \
     && corepack prepare pnpm@latest --activate
