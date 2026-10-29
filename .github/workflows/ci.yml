@@ -40,7 +40,7 @@ jobs:
       - name: Build image
         if: matrix.image.id != 'base'
         run: |
-          docker build --pull -t ${{ matrix.image.name }}:ci \
+          docker build -t ${{ matrix.image.name }}:ci \
             --build-arg BASE_IMAGE=runtime-base:ci \
             -f ${{ matrix.image.dockerfile }} .
 
@@ -133,7 +133,7 @@ jobs:
       - name: Build devcontainer image
         if: matrix.image.id == 'dev'
         run: |
-          docker build --pull -t runtime-devcontainer:ci \
+          docker build -t runtime-devcontainer:ci \
             --build-arg DEV_IMAGE=runtime-dev:ci \
             -f .devcontainer/Dockerfile .
 
