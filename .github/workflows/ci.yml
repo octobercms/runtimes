@@ -44,6 +44,16 @@ jobs:
             --build-arg BASE_IMAGE=runtime-base:ci \
             -f ${{ matrix.image.dockerfile }} .
 
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ matrix.image.name }}:ci
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+
       - name: Smoke test PHP version
         if: matrix.image.id == 'base'
         run: docker run --rm runtime-base:ci php -v | grep -F 'PHP ${{ matrix.php }}'
