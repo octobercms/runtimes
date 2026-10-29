@@ -70,6 +70,28 @@ jobs:
           docker run --rm runtime-base:ci pnpm --version
           docker run --rm runtime-base:ci yarn --version
 
+      - name: Smoke test npm functionality
+        if: matrix.image.id == 'base'
+        run: |
+          docker run --rm runtime-base:ci sh -ec '
+            tmp=$(mktemp -d)
+            trap "rm -rf \"$tmp\"" EXIT
+      
+            # Verify npm can resolve and install dependencies.
+            npm install \
+              --prefix "$tmp" \
+              --ignore-scripts \
+              --no-audit \
+              --no-fund \
+              is-number@7
+      
+            test -f "$tmp/node_modules/is-number/index.js"
+      
+            # Verify npm exec can resolve and run a package.
+            npm exec --yes --package=semver -- \
+              semver 1.2.3
+          '
+
       - name: Smoke test base extensions
         if: matrix.image.id == 'base'
         run: |
