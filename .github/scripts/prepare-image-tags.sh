@@ -4,6 +4,7 @@ set -euo pipefail
 : "${IMAGE:?IMAGE is required}"
 : "${IMAGE_PREFIX:?IMAGE_PREFIX is required}"
 : "${MOVING_TAG:?MOVING_TAG is required}"
+: "${GITHUB_SHA:?GITHUB_SHA is required}"
 
 date=$(date -u +'%Y.%m.%d')
 sha="${GITHUB_SHA:0:7}"
