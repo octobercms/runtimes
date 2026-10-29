@@ -57,6 +57,7 @@ jobs:
         run: bash .github/scripts/prepare-image-tags.sh
 
       - name: Build and push image
+        id: push
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -68,6 +69,19 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Export base digest
+        run: |
+          mkdir -p "${RUNNER_TEMP}/digests"
+          echo -n "${{ steps.push.outputs.digest }}" > "${RUNNER_TEMP}/digests/digest"
+
+      - name: Upload base digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: base-digest-${{ matrix.php }}-${{ matrix.node }}
+          path: ${{ runner.temp }}/digests/digest
+          if-no-files-found: error
+          retention-days: 1
 
   publish:
     needs: publish-base
@@ -94,6 +108,18 @@ jobs:
         id: tags
         run: bash .github/scripts/runtime-tag.sh '${{ matrix.php }}' '${{ matrix.node }}' >> "$GITHUB_OUTPUT"
 
+      - name: Download base digest
+        uses: actions/download-artifact@v4
+        with:
+          name: base-digest-${{ matrix.php }}-${{ matrix.node }}
+          path: ${{ runner.temp }}/digests
+
+      - name: Resolve BASE_IMAGE from digest
+        id: base
+        run: |
+          digest="$(cat "${RUNNER_TEMP}/digests/digest")"
+          echo "image=${IMAGE_PREFIX}/runtime-base@${digest}" >> "$GITHUB_OUTPUT"
+
       - name: Log in to GHCR
         uses: docker/login-action@v4
         with:
@@ -119,7 +145,7 @@ jobs:
           file: ${{ matrix.image.dockerfile }}
           push: true
           build-args: |
-            BASE_IMAGE=${{ env.IMAGE_PREFIX }}/runtime-base:${{ steps.tags.outputs.MOVING_TAG }}
+            BASE_IMAGE=${{ steps.base.outputs.image }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
