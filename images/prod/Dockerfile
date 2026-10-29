@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ghcr.io/octobercms/runtime-base:php85
+ARG BASE_IMAGE=ghcr.io/octobercms/runtime-base:php85-node26
 FROM ${BASE_IMAGE}
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

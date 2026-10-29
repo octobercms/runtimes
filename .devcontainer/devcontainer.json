@@ -4,7 +4,7 @@
     "dockerfile": "Dockerfile",
     "context": "..",
     "args": {
-      "DEV_IMAGE": "ghcr.io/octobercms/runtime-dev:php85"
+      "DEV_IMAGE": "ghcr.io/octobercms/runtime-dev:php85-node26"
     }
   },
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
