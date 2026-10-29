@@ -1,4 +1,4 @@
-ARG DEV_IMAGE=ghcr.io/octobercms/runtime-dev:php85
+ARG DEV_IMAGE=ghcr.io/octobercms/runtime-dev:php85-node26
 FROM ${DEV_IMAGE}
 
 COPY .devcontainer/post-create.sh /usr/local/bin/devcontainer-post-create.sh

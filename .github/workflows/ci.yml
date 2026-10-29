@@ -11,51 +11,57 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
+        php: ['8.3', '8.4', '8.5']
+        node: ['24', '26']
+        image:
           - id: base
-            image: runtime-base
+            name: runtime-base
             dockerfile: images/base/Dockerfile
           - id: dev
-            image: runtime-dev
+            name: runtime-dev
             dockerfile: images/dev/Dockerfile
           - id: prod
-            image: runtime-prod
+            name: runtime-prod
             dockerfile: images/prod/Dockerfile
           - id: worker
-            image: runtime-worker
+            name: runtime-worker
             dockerfile: images/worker/Dockerfile
 
     steps:
       - uses: actions/checkout@v6
 
       - name: Build base image
-        run: docker build -t runtime-base:ci -f images/base/Dockerfile .
+        run: |
+          docker build -t runtime-base:ci \
+            --build-arg PHP_VERSION=${{ matrix.php }} \
+            --build-arg NODE_VERSION=${{ matrix.node }} \
+            -f images/base/Dockerfile .
 
       - name: Build image
-        if: matrix.id != 'base'
+        if: matrix.image.id != 'base'
         run: |
-          docker build -t ${{ matrix.image }}:ci \
+          docker build -t ${{ matrix.image.name }}:ci \
             --build-arg BASE_IMAGE=runtime-base:ci \
-            -f ${{ matrix.dockerfile }} .
+            -f ${{ matrix.image.dockerfile }} .
 
       - name: Smoke test PHP version
-        if: matrix.id == 'base'
-        run: docker run --rm runtime-base:ci php -v | grep -F 'PHP 8.5'
+        if: matrix.image.id == 'base'
+        run: docker run --rm runtime-base:ci php -v | grep -F 'PHP ${{ matrix.php }}'
 
       - name: Smoke test Composer
-        if: matrix.id == 'base'
+        if: matrix.image.id == 'base'
         run: docker run --rm runtime-base:ci composer --version
 
       - name: Smoke test Node tooling
-        if: matrix.id == 'base'
+        if: matrix.image.id == 'base'
         run: |
-          docker run --rm runtime-base:ci node --version
+          docker run --rm runtime-base:ci node --version | grep -E '^v${{ matrix.node }}\.'
           docker run --rm runtime-base:ci npm --version
           docker run --rm runtime-base:ci pnpm --version
           docker run --rm runtime-base:ci yarn --version
 
       - name: Smoke test base extensions
-        if: matrix.id == 'base'
+        if: matrix.image.id == 'base'
         run: |
           docker run --rm runtime-base:ci php -r '
           $required = ["curl", "gd", "mbstring", "pdo_mysql", "simplexml", "xml", "zip"];
@@ -69,11 +75,11 @@ jobs:
           '
 
       - name: Smoke test PHP-FPM
-        if: matrix.id == 'base' || matrix.id == 'dev' || matrix.id == 'prod'
-        run: docker run --rm ${{ matrix.image }}:ci php-fpm -t
+        if: matrix.image.id == 'base' || matrix.image.id == 'dev' || matrix.image.id == 'prod'
+        run: docker run --rm ${{ matrix.image.name }}:ci php-fpm -t
 
       - name: Smoke test dev extensions
-        if: matrix.id == 'dev'
+        if: matrix.image.id == 'dev'
         run: |
           docker run --rm runtime-dev:ci php -r '
           $required = ["pdo_pgsql", "pdo_sqlite"];
@@ -87,24 +93,24 @@ jobs:
           '
 
       - name: Smoke test nginx
-        if: matrix.id == 'dev' || matrix.id == 'prod'
+        if: matrix.image.id == 'dev' || matrix.image.id == 'prod'
         run: |
-          docker run --rm ${{ matrix.image }}:ci nginx -v
-          docker run --rm ${{ matrix.image }}:ci nginx -t
+          docker run --rm ${{ matrix.image.name }}:ci nginx -v
+          docker run --rm ${{ matrix.image.name }}:ci nginx -t
 
       - name: Build devcontainer image
-        if: matrix.id == 'dev'
+        if: matrix.image.id == 'dev'
         run: |
           docker build -t runtime-devcontainer:ci \
             --build-arg DEV_IMAGE=runtime-dev:ci \
             -f .devcontainer/Dockerfile .
 
       - name: Smoke test devcontainer
-        if: matrix.id == 'dev'
+        if: matrix.image.id == 'dev'
         run: bash scripts/devcontainer-smoke-test.sh runtime-devcontainer:ci
 
       - name: Smoke test prod extensions
-        if: matrix.id == 'prod'
+        if: matrix.image.id == 'prod'
         run: |
           docker run --rm runtime-prod:ci php -r '
           $required = ["pdo_pgsql"];
@@ -118,11 +124,11 @@ jobs:
           '
 
       - name: Smoke test supervisor
-        if: matrix.id == 'prod'
+        if: matrix.image.id == 'prod'
         run: docker run --rm runtime-prod:ci supervisord --version
 
       - name: Smoke test health endpoint
-        if: matrix.id == 'prod'
+        if: matrix.image.id == 'prod'
         run: |
           cid=$(docker run -d runtime-prod:ci)
           trap 'docker rm -f "$cid"' EXIT
@@ -137,19 +143,19 @@ jobs:
           exit 1
 
       - name: Smoke test production scheduler
-        if: matrix.id == 'prod'
+        if: matrix.image.id == 'prod'
         run: bash scripts/prod-scheduler-smoke-test.sh runtime-prod:ci
 
       - name: Smoke test prod cache warm
-        if: matrix.id == 'prod'
+        if: matrix.image.id == 'prod'
         run: bash scripts/cache-warm-smoke-test.sh runtime-prod:ci
 
       - name: Smoke test prod libpq SSL home
-        if: matrix.id == 'prod'
+        if: matrix.image.id == 'prod'
         run: bash scripts/libpq-ssl-home-smoke-test.sh runtime-prod:ci
 
       - name: Smoke test worker extensions
-        if: matrix.id == 'worker'
+        if: matrix.image.id == 'worker'
         run: |
           docker run --rm runtime-worker:ci php -r '
           $required = ["pcntl", "pdo_pgsql", "pdo_sqlite", "posix"];
@@ -163,7 +169,7 @@ jobs:
           '
 
       - name: Smoke test worker excludes web stack
-        if: matrix.id == 'worker'
+        if: matrix.image.id == 'worker'
         run: |
           if docker run --rm --entrypoint bash runtime-worker:ci -lc 'command -v nginx'; then
             echo "nginx should not be installed in runtime-worker"
@@ -175,13 +181,13 @@ jobs:
           fi
 
       - name: Smoke test worker queue processing
-        if: matrix.id == 'worker'
+        if: matrix.image.id == 'worker'
         run: bash scripts/worker-queue-smoke-test.sh runtime-worker:ci
 
       - name: Smoke test worker cache warm
-        if: matrix.id == 'worker'
+        if: matrix.image.id == 'worker'
         run: bash scripts/cache-warm-smoke-test.sh runtime-worker:ci
 
       - name: Smoke test worker libpq SSL home
-        if: matrix.id == 'worker'
+        if: matrix.image.id == 'worker'
         run: bash scripts/libpq-ssl-home-smoke-test.sh runtime-worker:ci

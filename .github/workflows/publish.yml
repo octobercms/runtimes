@@ -24,38 +24,25 @@ env:
   ECR_RUNTIME_PROD_REPOSITORY: ${{ vars.ECR_RUNTIME_PROD_REPOSITORY }}
   GIT_REF: ${{ github.event.release.tag_name || github.ref_name }}
   IMAGE_PREFIX: ghcr.io/octobercms
-  MOVING_TAG: php85
 
 jobs:
   ci:
     uses: ./.github/workflows/ci.yml
 
-  publish:
+  publish-base:
     needs: ci
     runs-on: ubuntu-latest
     strategy:
-      max-parallel: 1
       fail-fast: true
       matrix:
-        include:
-          - image: runtime-base
-            dockerfile: images/base/Dockerfile
-            ecr_repository_env: ECR_RUNTIME_BASE_REPOSITORY
-
-          - image: runtime-dev
-            dockerfile: images/dev/Dockerfile
-            ecr_repository_env: ''
-
-          - image: runtime-prod
-            dockerfile: images/prod/Dockerfile
-            ecr_repository_env: ECR_RUNTIME_PROD_REPOSITORY
-
-          - image: runtime-worker
-            dockerfile: images/worker/Dockerfile
-            ecr_repository_env: ''
-
+        php: ['8.3', '8.4', '8.5']
+        node: ['24', '26']
     steps:
       - uses: actions/checkout@v6
+
+      - name: Resolve image tags
+        id: tags
+        run: bash .github/scripts/runtime-tag.sh '${{ matrix.php }}' '${{ matrix.node }}' >> "$GITHUB_OUTPUT"
 
       - name: Log in to GHCR
         uses: docker/login-action@v4
@@ -65,33 +52,133 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure AWS credentials
-        if: ${{ matrix.ecr_repository_env != '' }}
         uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ env.AWS_RUNTIME_PUBLISHER_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Log in to Amazon ECR
-        if: ${{ matrix.ecr_repository_env != '' }}
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Prepare GHCR image tags
         id: ghcr-meta
         env:
-          IMAGE: ${{ matrix.image }}
+          IMAGE: runtime-base
           IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
-          MOVING_TAG: ${{ env.MOVING_TAG }}
+          MOVING_TAG: ${{ steps.tags.outputs.MOVING_TAG }}
+          PUBLISH_LATEST: ${{ steps.tags.outputs.PUBLISH_LATEST }}
+          LEGACY_PHP_TAG: ${{ steps.tags.outputs.LEGACY_PHP_TAG }}
           GIT_REF: ${{ env.GIT_REF }}
         run: bash .github/scripts/prepare-image-tags.sh
 
       - name: Prepare ECR image tags
         id: ecr-meta
-        if: ${{ matrix.ecr_repository_env != '' }}
         env:
           AWS_ACCOUNT_ID: ${{ env.AWS_ACCOUNT_ID }}
           AWS_REGION: ${{ env.AWS_REGION }}
-          ECR_REPOSITORY_ENV: ${{ matrix.ecr_repository_env }}
-          MOVING_TAG: ${{ env.MOVING_TAG }}
+          ECR_REPOSITORY: ${{ env.ECR_RUNTIME_BASE_REPOSITORY }}
+          MOVING_TAG: ${{ steps.tags.outputs.MOVING_TAG }}
+          PUBLISH_LATEST: ${{ steps.tags.outputs.PUBLISH_LATEST }}
+          LEGACY_PHP_TAG: ${{ steps.tags.outputs.LEGACY_PHP_TAG }}
+          GIT_REF: ${{ env.GIT_REF }}
+        run: |
+          ECR_IMAGE="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}"
+
+          {
+            echo "tags<<EOF"
+            echo "${ECR_IMAGE}:${MOVING_TAG}"
+            if [[ "${PUBLISH_LATEST}" == "true" ]]; then
+              echo "${ECR_IMAGE}:latest"
+            fi
+            if [[ -n "${LEGACY_PHP_TAG}" ]]; then
+              echo "${ECR_IMAGE}:${LEGACY_PHP_TAG}"
+            fi
+            echo "${ECR_IMAGE}:${MOVING_TAG}-${GIT_REF}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: images/base/Dockerfile
+          push: true
+          build-args: |
+            PHP_VERSION=${{ matrix.php }}
+            NODE_VERSION=${{ matrix.node }}
+          tags: |
+            ${{ steps.ghcr-meta.outputs.tags }}
+            ${{ steps.ecr-meta.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+  publish:
+    needs: publish-base
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        php: ['8.3', '8.4', '8.5']
+        node: ['24', '26']
+        image:
+          - name: runtime-dev
+            dockerfile: images/dev/Dockerfile
+            ecr_repository_env: ''
+
+          - name: runtime-prod
+            dockerfile: images/prod/Dockerfile
+            ecr_repository_env: ECR_RUNTIME_PROD_REPOSITORY
+
+          - name: runtime-worker
+            dockerfile: images/worker/Dockerfile
+            ecr_repository_env: ''
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve image tags
+        id: tags
+        run: bash .github/scripts/runtime-tag.sh '${{ matrix.php }}' '${{ matrix.node }}' >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure AWS credentials
+        if: ${{ matrix.image.ecr_repository_env != '' }}
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ env.AWS_RUNTIME_PUBLISHER_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        if: ${{ matrix.image.ecr_repository_env != '' }}
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Prepare GHCR image tags
+        id: ghcr-meta
+        env:
+          IMAGE: ${{ matrix.image.name }}
+          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
+          MOVING_TAG: ${{ steps.tags.outputs.MOVING_TAG }}
+          PUBLISH_LATEST: ${{ steps.tags.outputs.PUBLISH_LATEST }}
+          LEGACY_PHP_TAG: ${{ steps.tags.outputs.LEGACY_PHP_TAG }}
+          GIT_REF: ${{ env.GIT_REF }}
+        run: bash .github/scripts/prepare-image-tags.sh
+
+      - name: Prepare ECR image tags
+        id: ecr-meta
+        if: ${{ matrix.image.ecr_repository_env != '' }}
+        env:
+          AWS_ACCOUNT_ID: ${{ env.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+          ECR_REPOSITORY_ENV: ${{ matrix.image.ecr_repository_env }}
+          MOVING_TAG: ${{ steps.tags.outputs.MOVING_TAG }}
+          PUBLISH_LATEST: ${{ steps.tags.outputs.PUBLISH_LATEST }}
+          LEGACY_PHP_TAG: ${{ steps.tags.outputs.LEGACY_PHP_TAG }}
           GIT_REF: ${{ env.GIT_REF }}
         run: |
           ECR_REPOSITORY="${!ECR_REPOSITORY_ENV}"
@@ -100,7 +187,13 @@ jobs:
           {
             echo "tags<<EOF"
             echo "${ECR_IMAGE}:${MOVING_TAG}"
-            echo "${ECR_IMAGE}:${GIT_REF}"
+            if [[ "${PUBLISH_LATEST}" == "true" ]]; then
+              echo "${ECR_IMAGE}:latest"
+            fi
+            if [[ -n "${LEGACY_PHP_TAG}" ]]; then
+              echo "${ECR_IMAGE}:${LEGACY_PHP_TAG}"
+            fi
+            echo "${ECR_IMAGE}:${MOVING_TAG}-${GIT_REF}"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -108,10 +201,10 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: ${{ matrix.dockerfile }}
+          file: ${{ matrix.image.dockerfile }}
           push: true
           build-args: |
-            BASE_IMAGE=${{ env.IMAGE_PREFIX }}/runtime-base:${{ env.MOVING_TAG }}
+            BASE_IMAGE=${{ env.IMAGE_PREFIX }}/runtime-base:${{ steps.tags.outputs.MOVING_TAG }}
           tags: |
             ${{ steps.ghcr-meta.outputs.tags }}
             ${{ steps.ecr-meta.outputs.tags }}
