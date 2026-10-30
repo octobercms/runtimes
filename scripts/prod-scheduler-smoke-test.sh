@@ -51,6 +51,24 @@ wait_for_program() {
     return 1
 }
 
+assert_scheduler_absent() {
+    if supervisor_status | grep -E '^scheduler[[:space:]]'; then
+        echo "scheduler should not be managed when OCTOBER_SCHEDULER_ENABLED is off"
+        supervisor_status
+        exit 1
+    fi
+    if process_args | grep -E 'sleep infinity|artisan schedule:work'; then
+        echo "Unexpected scheduler-related process when scheduler is disabled"
+        process_args
+        exit 1
+    fi
+    if ! docker logs "${cid}" 2>&1 | grep -F 'October scheduler disabled'; then
+        echo "Expected entrypoint log that scheduler is disabled"
+        docker logs "${cid}" || true
+        exit 1
+    fi
+}
+
 wait_for_file() {
     local path="$1"
     local attempts="${2:-90}"
@@ -172,13 +190,7 @@ cid="$(docker run -d "${image}")"
 wait_for_health
 wait_for_program nginx
 wait_for_program php-fpm
-wait_for_program scheduler
-docker logs "${cid}" 2>&1 | grep -F 'October scheduler disabled'
-if process_args | grep -F 'artisan schedule:work'; then
-    echo "schedule:work should not start when scheduler is disabled by default"
-    process_args
-    exit 1
-fi
+assert_scheduler_absent
 docker rm -f "${cid}" >/dev/null
 cid=""
 
@@ -201,12 +213,6 @@ cid="$(docker run -d \
     -v "${workdir}:/var/www/html" \
     "${image}")"
 wait_for_health
-wait_for_program scheduler
-if process_args | grep -F 'artisan schedule:work'; then
-    echo "schedule:work is running despite OCTOBER_SCHEDULER_ENABLED=false"
-    process_args
-    exit 1
-fi
-docker logs "${cid}" 2>&1 | grep -F 'October scheduler disabled'
+assert_scheduler_absent
 
 echo "Production scheduler smoke test passed"

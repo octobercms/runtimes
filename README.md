@@ -54,7 +54,7 @@ Extends the base image for production HTTP/web use.
 - Production PHP settings (`runtime.ini`: OPcache with `validate_timestamps=0`, memory limit, `expose_php=Off`)
 - `/_health` endpoint for container health checks
 
-The scheduler is opt-in. Set `OCTOBER_SCHEDULER_ENABLED=true` to run `php artisan schedule:work` when `/var/www/html/artisan` is present. Queue workers are not started by this image; run them on separate compute with `runtime-worker`.
+The scheduler is opt-in. Set `OCTOBER_SCHEDULER_ENABLED=true` to register the Supervisor `scheduler` program and run `php artisan schedule:work` when `/var/www/html/artisan` is present. When disabled (the default), the scheduler program is omitted—no idle `sleep` process in web tasks. Queue workers are not started by this image; run them on separate compute with `runtime-worker`.
 
 ### Worker (`runtime-worker`)
 
@@ -174,7 +174,9 @@ config/
 ├── nginx/default.conf       # October CMS Nginx configuration
 ├── php/runtime.ini          # Production PHP settings
 ├── php-fpm/zz-runtime.conf  # PHP-FPM pool settings
-└── supervisor/supervisord.conf
+└── supervisor/
+    ├── supervisord.conf   # Nginx + PHP-FPM programs
+    └── scheduler.conf     # Optional schedule:work program (removed at start when disabled)
 
 images/
 ├── base/Dockerfile          # Shared PHP foundation

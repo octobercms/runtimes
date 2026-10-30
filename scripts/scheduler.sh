@@ -10,8 +10,8 @@ case "${normalized}" in
     1|true|yes|on)
         ;;
     *)
-        echo "October scheduler disabled (OCTOBER_SCHEDULER_ENABLED=${enabled})."
-        exec sleep infinity
+        echo "October scheduler disabled (OCTOBER_SCHEDULER_ENABLED=${enabled})." >&2
+        exit 0
         ;;
 esac
 

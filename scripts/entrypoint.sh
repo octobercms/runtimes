@@ -31,6 +31,28 @@ if [ -f /var/www/html/artisan ]; then
     fi
 fi
 
+october_scheduler_wanted() {
+    case "$(printf '%s' "${OCTOBER_SCHEDULER_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')" in
+        1|true|yes|on) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+configure_supervisor_scheduler() {
+    local drop_in="/etc/supervisor/conf.d/scheduler.conf"
+
+    if october_scheduler_wanted; then
+        return
+    fi
+
+    echo "October scheduler disabled (OCTOBER_SCHEDULER_ENABLED=${OCTOBER_SCHEDULER_ENABLED:-false})."
+    rm -f "${drop_in}"
+}
+
+if [[ "${1:-}" == /usr/bin/supervisord ]]; then
+    configure_supervisor_scheduler
+fi
+
 if [[ "$(id -u)" -eq 0 && -n "${OCTOBER_RUNTIME_USER:-}" ]]; then
     if id "${OCTOBER_RUNTIME_USER}" >/dev/null 2>&1; then
         # Dropping uid without fixing HOME leaves HOME=/root; libpq then fails opening

@@ -49,7 +49,7 @@ if docker run --rm --entrypoint bash "${image}" -lc 'command -v supervisord' >/d
 fi
 
 if [[ "${is_prod_image}" -eq 1 ]]; then
-    echo "Verifying prod supervisord paths (scheduler + PHP-FPM request)..."
+    echo "Verifying prod supervisord paths (PHP-FPM request)..."
     workdir="$(mktemp -d)"
     chmod 755 "${workdir}"
     cid=""
@@ -87,28 +87,6 @@ PHP
         docker logs "${cid}" || true
         exit 1
     fi
-
-    for _ in $(seq 1 30); do
-        if docker exec "${cid}" supervisorctl status scheduler 2>/dev/null | grep -Eq 'RUNNING'; then
-            break
-        fi
-        sleep 1
-    done
-    if ! docker exec "${cid}" supervisorctl status scheduler 2>/dev/null | grep -Eq 'RUNNING'; then
-        echo "Scheduler did not reach RUNNING"
-        docker exec "${cid}" supervisorctl status || true
-        docker logs "${cid}" || true
-        exit 1
-    fi
-
-    sched_pid="$(docker exec "${cid}" supervisorctl pid scheduler)"
-    sched_user="$(docker exec "${cid}" bash -lc "stat -c %U /proc/${sched_pid}")"
-    # /proc/<pid>/environ is mode 400 as the process user; read it as www-data.
-    sched_environ="$(docker exec -u www-data "${cid}" bash -lc "tr '\\0' '\\n' < /proc/${sched_pid}/environ")"
-    sched_home="$(printf '%s\n' "${sched_environ}" | sed -n 's/^HOME=//p')"
-    sched_cert="$(printf '%s\n' "${sched_environ}" | sed -n 's/^PGSSLCERT=//p')"
-    assert_libpq_env "scheduler process" "${sched_home}" "${sched_cert}" "${sched_user}"
-    echo "scheduler HOME=${sched_home} PGSSLCERT=${sched_cert} user=${sched_user}"
 
     php_env=""
     for _ in $(seq 1 30); do

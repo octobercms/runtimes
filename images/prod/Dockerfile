@@ -24,6 +24,7 @@ COPY config/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY config/php/runtime.ini /usr/local/etc/php/conf.d/runtime.ini
 COPY config/php-fpm/zz-runtime.conf /usr/local/etc/php-fpm.d/zz-runtime.conf
 COPY config/supervisor/supervisord.conf /etc/supervisor/conf.d/runtimes.conf
+COPY config/supervisor/scheduler.conf /etc/supervisor/conf.d/scheduler.conf
 COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY scripts/healthcheck.sh /usr/local/bin/healthcheck.sh
 COPY scripts/scheduler.sh /usr/local/bin/scheduler.sh
