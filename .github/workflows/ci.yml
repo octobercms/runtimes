@@ -140,6 +140,20 @@ jobs:
         if: matrix.image.id == 'dev'
         run: bash scripts/devcontainer-smoke-test.sh runtime-devcontainer:ci
 
+      - name: Smoke test production PHP settings
+        if: matrix.image.id == 'prod' || matrix.image.id == 'worker'
+        run: |
+          docker run --rm ${{ matrix.image.name }}:ci php -r '
+          foreach (["opcache.validate_timestamps" => "0", "opcache.enable" => "1", "opcache.enable_cli" => "1"] as $key => $expected) {
+              $actual = ini_get($key);
+              if ($actual !== $expected) {
+                  fwrite(STDERR, "Expected {$key}={$expected}, got {$actual}\n");
+                  exit(1);
+              }
+          }
+          echo "Production PHP settings OK\n";
+          '
+
       - name: Smoke test prod extensions
         if: matrix.image.id == 'prod'
         run: |

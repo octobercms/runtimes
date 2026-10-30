@@ -51,6 +51,7 @@ Extends the base image for production HTTP/web use.
 - Nginx with the October CMS 4.x routing configuration
 - Supervisor managing Nginx, PHP-FPM, and `php artisan schedule:work`
 - Entrypoint that prepares October storage directories
+- Production PHP settings (`runtime.ini`: OPcache with `validate_timestamps=0`, memory limit, `expose_php=Off`)
 - `/_health` endpoint for container health checks
 
 The scheduler is opt-in. Set `OCTOBER_SCHEDULER_ENABLED=true` to run `php artisan schedule:work` when `/var/www/html/artisan` is present. Queue workers are not started by this image; run them on separate compute with `runtime-worker`.
