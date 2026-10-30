@@ -37,7 +37,9 @@ pid1_queue_worker_ready() {
         cmd=$(tr "\0" " " < /proc/1/cmdline 2>/dev/null || true)
         [[ -n "${uid}" && "${uid}" -eq "${target}" ]] || exit 1
         grep -Fq "artisan queue:work" <<<"${cmd}" || exit 1
-        grep -Fq "entrypoint.sh" <<<"${cmd}" && exit 1
+        if grep -Fq "entrypoint.sh" <<<"${cmd}"; then
+            exit 1
+        fi
     '
 }
 
