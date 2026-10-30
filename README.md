@@ -120,7 +120,7 @@ Each publish pushes several tags per image. The primary moving tag is `phpXY-nod
 | `phpXY-nodeN-X.Y.Z`               | `runtime-prod:php85-node26-1.0.0`              | Version pin from a release or `v*` tag  |
 | `X.Y.Z`                           | `runtime-prod:1.0.0`                           | Version pin (default combination only)  |
 
-For production, prefer an immutable tag such as a date-SHA or semver tag rather than a moving tag.
+For production, prefer an immutable tag such as a date-SHA or semver tag, or pin by digest (`ghcr.io/octobercms/runtime-prod@sha256:…`), rather than a moving tag. Each publish run records digest and git SHA references in the workflow summary.
 
 ## Local builds
 

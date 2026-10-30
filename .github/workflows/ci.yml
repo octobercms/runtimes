@@ -32,7 +32,7 @@ jobs:
 
       - name: Build base image
         run: |
-          docker build -t runtime-base:ci \
+          docker build --pull -t runtime-base:ci \
             --build-arg PHP_VERSION=${{ matrix.php }} \
             --build-arg NODE_VERSION=${{ matrix.node }} \
             -f images/base/Dockerfile .

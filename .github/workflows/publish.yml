@@ -8,7 +8,13 @@ on:
       - main
     tags:
       - 'v*'
+  schedule:
+    - cron: '0 0 * * *'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -63,17 +69,29 @@ jobs:
           context: .
           file: images/base/Dockerfile
           push: true
+          pull: true
           build-args: |
             PHP_VERSION=${{ matrix.php }}
             NODE_VERSION=${{ matrix.node }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Export base digest
+        env:
+          IMAGE: runtime-base
+          MOVING_TAG: ${{ steps.tags.outputs.MOVING_TAG }}
+          DIGEST: ${{ steps.push.outputs.digest }}
         run: |
           mkdir -p "${RUNNER_TEMP}/digests"
-          echo -n "${{ steps.push.outputs.digest }}" > "${RUNNER_TEMP}/digests/digest"
+          echo -n "${DIGEST}" > "${RUNNER_TEMP}/digests/digest"
+          {
+            echo "### ${IMAGE} (PHP ${{ matrix.php }}, Node ${{ matrix.node }})"
+            echo "- Moving: \`${IMAGE_PREFIX}/${IMAGE}:${MOVING_TAG}\`"
+            echo "- Digest: \`${IMAGE_PREFIX}/${IMAGE}@${DIGEST}\`"
+            echo "- Git SHA: \`${GITHUB_SHA}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload base digest
         uses: actions/upload-artifact@v4
@@ -139,13 +157,46 @@ jobs:
         run: bash .github/scripts/prepare-image-tags.sh
 
       - name: Build and push image
+        id: push
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ${{ matrix.image.dockerfile }}
           push: true
+          pull: true
           build-args: |
             BASE_IMAGE=${{ steps.base.outputs.image }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Record immutable references
+        env:
+          IMAGE: ${{ matrix.image.name }}
+          MOVING_TAG: ${{ steps.tags.outputs.MOVING_TAG }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          mkdir -p "${RUNNER_TEMP}/digests"
+          {
+            echo "image=${IMAGE_PREFIX}/${IMAGE}"
+            echo "moving_tag=${MOVING_TAG}"
+            echo "digest=${DIGEST}"
+            echo "git_sha=${GITHUB_SHA}"
+            echo "base_image=${{ steps.base.outputs.image }}"
+          } > "${RUNNER_TEMP}/digests/refs.txt"
+          {
+            echo "### ${IMAGE} (PHP ${{ matrix.php }}, Node ${{ matrix.node }})"
+            echo "- Moving: \`${IMAGE_PREFIX}/${IMAGE}:${MOVING_TAG}\`"
+            echo "- Digest: \`${IMAGE_PREFIX}/${IMAGE}@${DIGEST}\`"
+            echo "- Git SHA: \`${GITHUB_SHA}\`"
+            echo "- Base: \`${{ steps.base.outputs.image }}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload image refs
+        uses: actions/upload-artifact@v4
+        with:
+          name: refs-${{ matrix.image.name }}-${{ matrix.php }}-${{ matrix.node }}
+          path: ${{ runner.temp }}/digests/refs.txt
+          if-no-files-found: error
+          retention-days: 90
