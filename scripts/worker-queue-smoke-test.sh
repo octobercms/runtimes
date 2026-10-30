@@ -30,6 +30,31 @@ process_args() {
     '
 }
 
+pid1_queue_worker_ready() {
+    docker exec "${cid}" bash -lc '
+        user=$(stat -c %U /proc/1 2>/dev/null || echo "")
+        cmd=$(tr "\0" " " < /proc/1/cmdline 2>/dev/null || true)
+        [[ "${user}" == "www-data" ]] || exit 1
+        grep -Fq "artisan queue:work" <<<"${cmd}" || exit 1
+        # Ignore the root entrypoint wrapper; wait for setpriv to exec php.
+        grep -Fq "entrypoint.sh" <<<"${cmd}" && exit 1
+    '
+}
+
+wait_for_queue_worker() {
+    local attempts="${1:-120}"
+    for _ in $(seq 1 "${attempts}"); do
+        if pid1_queue_worker_ready; then
+            return 0
+        fi
+        sleep 1
+    done
+    echo "queue:work did not start as www-data on PID 1"
+    docker logs "${cid}" || true
+    process_args || true
+    return 1
+}
+
 wait_for_file() {
     local path="$1"
     local attempts="${2:-90}"
@@ -104,18 +129,7 @@ cid="$(docker run -d \
     "${image}")"
 
 echo "Verifying default queue worker process..."
-for _ in $(seq 1 30); do
-    if process_args | grep -F 'artisan queue:work'; then
-        break
-    fi
-    sleep 1
-done
-if ! process_args | grep -F 'artisan queue:work'; then
-    echo "queue:work did not start"
-    docker logs "${cid}"
-    process_args
-    exit 1
-fi
+wait_for_queue_worker
 
 assert_no_web_stack
 
