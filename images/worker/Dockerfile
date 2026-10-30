@@ -24,5 +24,7 @@ ENV OCTOBER_RUNTIME_USER=www-data \
 # Permission denied on /root aborts SSL connects even when a client cert is not required
 # (e.g. Neon sslmode=require). PGSSLCERT redirects the probe away from /root as a guard.
 
+WORKDIR /var/www/html
+
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["php", "artisan", "queue:work"]

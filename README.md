@@ -26,7 +26,7 @@ runtime-base
 
 The base image is the shared layer for all runtimes. It is not intended to be run directly.
 
-- PHP FPM (8.3, 8.4, or 8.5)
+- PHP CLI (8.3, 8.4, or 8.5)
 - Composer 2
 - Node.js (24 or 26) with npm
 - Extensions required by October CMS
@@ -34,22 +34,21 @@ The base image is the shared layer for all runtimes. It is not intended to be ru
 
 Images are published for every PHP × Node combination. The default moving tags (`php85`, `latest`) track PHP 8.5 + Node 26.
 
-Nginx and Supervisor are intentionally excluded so worker and web runtimes can reuse the same base.
+Nginx, PHP-FPM, and Supervisor are intentionally excluded so worker and web runtimes can reuse the same base.
 
 ### Dev (`runtime-dev`)
 
 Extends the base image for local and cloud development.
 
-- PostgreSQL and SQLite drivers
-- Nginx with the October CMS 4.x routing configuration
+- PHP-FPM (from the matching official `php-*-fpm-bookworm` image) and Nginx with the October CMS 4.x routing configuration
 - Basic shell tooling (`bash`, `less`)
 
 ### Prod (`runtime-prod`)
 
 Extends the base image for production HTTP/web use.
 
+- PHP-FPM (from the matching official `php-*-fpm-bookworm` image)
 - Nginx with the October CMS 4.x routing configuration
-- PHP-FPM production settings
 - Supervisor managing Nginx, PHP-FPM, and `php artisan schedule:work`
 - Entrypoint that prepares October storage directories
 - `/_health` endpoint for container health checks
@@ -58,7 +57,7 @@ The scheduler is opt-in. Set `OCTOBER_SCHEDULER_ENABLED=true` to run `php artisa
 
 ### Worker (`runtime-worker`)
 
-Extends the base image for isolated production queue execution. Platforms such as October Cloud can run the same application revision on `runtime-prod` (web) and `runtime-worker` (queues).
+Extends `runtime-base` for isolated production queue execution (CLI only — no PHP-FPM or Nginx). Platforms such as October Cloud can run the same application revision on `runtime-prod` (web) and `runtime-worker` (queues).
 
 - PostgreSQL and SQLite drivers and production PHP settings
 - `pcntl` / `posix` for graceful worker signal handling
@@ -134,10 +133,12 @@ docker build -t runtime-base:local \
 
 docker build -t runtime-dev:local \
   --build-arg BASE_IMAGE=runtime-base:local \
+  --build-arg PHP_VERSION=8.5 \
   -f images/dev/Dockerfile .
 
 docker build -t runtime-prod:local \
   --build-arg BASE_IMAGE=runtime-base:local \
+  --build-arg PHP_VERSION=8.5 \
   -f images/prod/Dockerfile .
 
 docker build -t runtime-worker:local \

@@ -42,6 +42,7 @@ jobs:
         run: |
           docker build -t ${{ matrix.image.name }}:ci \
             --build-arg BASE_IMAGE=runtime-base:ci \
+            --build-arg PHP_VERSION=${{ matrix.php }} \
             -f ${{ matrix.image.dockerfile }} .
 
       - name: Scan image for vulnerabilities
@@ -105,7 +106,7 @@ jobs:
           '
 
       - name: Smoke test PHP-FPM
-        if: matrix.image.id == 'base' || matrix.image.id == 'dev' || matrix.image.id == 'prod'
+        if: matrix.image.id == 'dev' || matrix.image.id == 'prod'
         run: docker run --rm ${{ matrix.image.name }}:ci php-fpm -t
 
       - name: Smoke test dev extensions
@@ -207,6 +208,10 @@ jobs:
           fi
           if docker run --rm --entrypoint bash runtime-worker:ci -lc 'command -v supervisord'; then
             echo "supervisord should not be installed in runtime-worker"
+            exit 1
+          fi
+          if docker run --rm --entrypoint bash runtime-worker:ci -lc 'command -v php-fpm'; then
+            echo "php-fpm should not be installed in runtime-worker"
             exit 1
           fi
 

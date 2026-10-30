@@ -3,7 +3,7 @@ ARG NODE_VERSION=26
 
 FROM node:${NODE_VERSION}-bookworm AS node
 
-FROM php:${PHP_VERSION}-fpm
+FROM php:${PHP_VERSION}-cli-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \

@@ -61,6 +61,11 @@ assert_no_web_stack() {
         echo "supervisord should not be installed in the worker runtime"
         exit 1
     fi
+
+    if docker exec "${cid}" bash -lc 'command -v php-fpm' >/dev/null 2>&1; then
+        echo "php-fpm should not be installed in the worker runtime"
+        exit 1
+    fi
 }
 
 echo "Creating minimal Laravel app fixture..."

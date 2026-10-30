@@ -166,6 +166,7 @@ jobs:
           pull: true
           build-args: |
             BASE_IMAGE=${{ steps.base.outputs.image }}
+            PHP_VERSION=${{ matrix.php }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
