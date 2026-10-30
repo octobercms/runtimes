@@ -12,14 +12,43 @@ storage_dirs=(
     database
 )
 
-for dir in "${storage_dirs[@]}"; do
-    path="/var/www/html/${dir}"
-    mkdir -p "${path}"
+runtime_www_user="www-data"
+runtime_www_group="www-data"
 
-    if id www-data >/dev/null 2>&1; then
-        chown -R www-data:www-data "${path}"
+ensure_storage_layout() {
+    local base="/var/www/html"
+    local dir path
+
+    for dir in "${storage_dirs[@]}"; do
+        mkdir -p "${base}/${dir}"
+    done
+
+    if ! id "${runtime_www_user}" >/dev/null 2>&1; then
+        return
     fi
-done
+
+    fix_tree_if_wrong_root() {
+        local tree="$1"
+        [[ -d "${tree}" ]] || return 0
+        if [[ "$(stat -c '%U' "${tree}")" != "${runtime_www_user}" ]]; then
+            chown -R "${runtime_www_user}:${runtime_www_group}" "${tree}"
+        fi
+    }
+
+    fix_tree_if_wrong_root "${base}/storage"
+    fix_tree_if_wrong_root "${base}/bootstrap/cache"
+    fix_tree_if_wrong_root "${base}/database"
+
+    for dir in "${storage_dirs[@]}"; do
+        path="${base}/${dir}"
+        [[ -e "${path}" ]] || continue
+        if [[ "$(stat -c '%U:%G' "${path}")" != "${runtime_www_user}:${runtime_www_group}" ]]; then
+            chown "${runtime_www_user}:${runtime_www_group}" "${path}"
+        fi
+    done
+}
+
+ensure_storage_layout
 
 if [ -f /var/www/html/artisan ]; then
     mkdir -p /var/www/html/storage/framework/cache/cms

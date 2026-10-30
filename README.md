@@ -185,7 +185,7 @@ images/
 └── worker/Dockerfile        # Production queue-worker runtime
 
 scripts/
-├── entrypoint.sh                 # Prepares storage directories on startup
+├── entrypoint.sh                 # Ensures storage paths exist; recursive chown only when a tree root is not www-data
 ├── healthcheck.sh                # Checks /_health from inside the container
 ├── scheduler.sh                  # Supervisor wrapper for php artisan schedule:work
 ├── prod-scheduler-smoke-test.sh  # Verifies schedule:work lifecycle in runtime-prod
