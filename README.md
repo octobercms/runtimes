@@ -28,7 +28,7 @@ The base image is the shared layer for all runtimes. It is not intended to be ru
 
 - PHP FPM (8.3, 8.4, or 8.5)
 - Composer 2
-- Node.js (24 or 26) with npm, pnpm, and yarn
+- Node.js (24 or 26) with npm
 - Extensions required by October CMS
 - Working directory: `/var/www/html`
 

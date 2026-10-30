@@ -45,14 +45,6 @@ RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
          rm -rf "$npm_mods/balanced-match"; \
          mv "$tmp/node_modules/balanced-match" "$npm_mods/balanced-match"; \
        fi \
-    && rm -rf "$tmp" /root/.npm \
-    && if [ -e /usr/local/lib/node_modules/corepack/dist/corepack.js ]; then \
-         ln -sf /usr/local/lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack; \
-       else \
-         npm install -g corepack; \
-       fi \
-    && corepack enable \
-    && corepack prepare yarn@stable --activate \
-    && corepack prepare pnpm@latest --activate
+    && rm -rf "$tmp" /root/.npm
 
 WORKDIR /var/www/html
