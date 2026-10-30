@@ -32,17 +32,17 @@ process_args() {
 
 pid1_queue_worker_ready() {
     docker exec "${cid}" bash -lc '
-        user=$(stat -c %U /proc/1 2>/dev/null || echo "")
+        uid=$(stat -c %u /proc/1 2>/dev/null || echo "")
+        target=$(id -u www-data)
         cmd=$(tr "\0" " " < /proc/1/cmdline 2>/dev/null || true)
-        [[ "${user}" == "www-data" ]] || exit 1
+        [[ -n "${uid}" && "${uid}" -eq "${target}" ]] || exit 1
         grep -Fq "artisan queue:work" <<<"${cmd}" || exit 1
-        # Ignore the root entrypoint wrapper; wait for setpriv to exec php.
         grep -Fq "entrypoint.sh" <<<"${cmd}" && exit 1
     '
 }
 
 wait_for_queue_worker() {
-    local attempts="${1:-120}"
+    local attempts="${1:-90}"
     for _ in $(seq 1 "${attempts}"); do
         if pid1_queue_worker_ready; then
             return 0
