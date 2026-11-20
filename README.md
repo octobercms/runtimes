@@ -26,13 +26,13 @@ runtime-base
 
 The base image is the shared layer for all runtimes. It is not intended to be run directly.
 
-- PHP FPM (8.3, 8.4, or 8.5)
+- PHP FPM (8.3, 8.4, 8.5, or 8.6)
 - Composer 2
 - Node.js (24 or 26) with npm, pnpm, and yarn
 - Extensions required by October CMS
 - Working directory: `/var/www/html`
 
-Images are published for every PHP × Node combination. The default moving tags (`php85`, `latest`) track PHP 8.5 + Node 26.
+Images are published for every PHP × Node combination. The default moving tags (`php86`, `latest`) track PHP 8.6 + Node 26.
 
 Nginx and Supervisor are intentionally excluded so worker and web runtimes can reuse the same base.
 
@@ -69,7 +69,7 @@ Extends the base image for isolated production queue execution. Platforms such a
 Queue backend, timeout, retry, sleep, and concurrency arguments are left to the platform. Override the command when needed:
 
 ```bash
-docker run --rm ghcr.io/octobercms/runtime-worker:php85-node26 \
+docker run --rm ghcr.io/octobercms/runtime-worker:php86-node26 \
   php artisan queue:work sqs --timeout=90 --tries=3
 ```
 
@@ -80,15 +80,15 @@ Worker health should be based on process/task state (for example ECS task health
 Pull a published image:
 
 ```bash
-docker pull ghcr.io/octobercms/runtime-dev:php85-node26
+docker pull ghcr.io/octobercms/runtime-dev:php86-node26
 docker pull ghcr.io/octobercms/runtime-prod:php84-node24
-docker pull ghcr.io/octobercms/runtime-worker:php85-node26
+docker pull ghcr.io/octobercms/runtime-worker:php86-node26
 ```
 
 Use the prod image as a base in an application Dockerfile:
 
 ```dockerfile
-FROM ghcr.io/octobercms/runtime-prod:php85-node26
+FROM ghcr.io/octobercms/runtime-prod:php86-node26
 
 COPY . /var/www/html
 RUN composer install --no-dev --optimize-autoloader
@@ -105,30 +105,31 @@ Every publish builds all PHP × Node combinations:
 | PHP 8.3 | `php83-node24`   | `php83-node26`   |
 | PHP 8.4 | `php84-node24`   | `php84-node26`   |
 | PHP 8.5 | `php85-node24`   | `php85-node26`   |
+| PHP 8.6 | `php86-node24`   | `php86-node26`   |
 
 ## Tags
 
-Each publish pushes several tags per image. The primary moving tag is `phpXY-nodeN` for that matrix cell. The default cell (PHP 8.5 + Node 26) also receives the legacy `php85` and `latest` aliases.
+Each publish pushes several tags per image. The primary moving tag is `phpXY-nodeN` for that matrix cell. The default cell (PHP 8.6 + Node 26) also receives the legacy `php86` and `latest` aliases.
 
 | Tag                               | Example                                        | Notes                                   |
 | --------------------------------- | ---------------------------------------------- | --------------------------------------- |
-| `phpXY-nodeN`                     | `runtime-prod:php85-node26`                    | Moving tag for a PHP × Node combination |
-| `php85`                           | `runtime-prod:php85`                           | Legacy alias for PHP 8.5 + Node 26      |
+| `phpXY-nodeN`                     | `runtime-prod:php86-node26`                    | Moving tag for a PHP × Node combination |
+| `php86`                           | `runtime-prod:php86`                           | Legacy alias for PHP 8.6 + Node 26      |
 | `latest`                          | `runtime-prod:latest`                          | Moving tag for the default combination  |
-| `phpXY-nodeN-YYYY.MM.DD`          | `runtime-prod:php85-node26-2026.06.11`         | Date pin (UTC)                          |
-| `phpXY-nodeN-YYYY.MM.DD-SHORTSHA` | `runtime-prod:php85-node26-2026.06.11-abc1234` | Immutable pin per build                 |
-| `phpXY-nodeN-X.Y.Z`               | `runtime-prod:php85-node26-1.0.0`              | Version pin from a release or `v*` tag  |
+| `phpXY-nodeN-YYYY.MM.DD`          | `runtime-prod:php86-node26-2026.06.11`         | Date pin (UTC)                          |
+| `phpXY-nodeN-YYYY.MM.DD-SHORTSHA` | `runtime-prod:php86-node26-2026.06.11-abc1234` | Immutable pin per build                 |
+| `phpXY-nodeN-X.Y.Z`               | `runtime-prod:php86-node26-1.0.0`              | Version pin from a release or `v*` tag  |
 | `X.Y.Z`                           | `runtime-prod:1.0.0`                           | Version pin (default combination only)  |
 
 For production, prefer an immutable tag such as a date-SHA or semver tag, or pin by digest (`ghcr.io/octobercms/runtime-prod@sha256:…`), rather than a moving tag. Each publish run records digest and git SHA references in the workflow summary.
 
 ## Local builds
 
-Build the base image first, then build the specialized runtimes against it. Pass `PHP_VERSION` / `NODE_VERSION` to select a matrix cell (defaults: `8.5` / `26`):
+Build the base image first, then build the specialized runtimes against it. Pass `PHP_VERSION` / `NODE_VERSION` to select a matrix cell (defaults: `8.6` / `26`):
 
 ```bash
 docker build -t runtime-base:local \
-  --build-arg PHP_VERSION=8.5 \
+  --build-arg PHP_VERSION=8.6 \
   --build-arg NODE_VERSION=26 \
   -f images/base/Dockerfile .
 
